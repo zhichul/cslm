@@ -67,8 +67,7 @@ class Trainer:
             batch_size=self.args.per_device_eval_batch_size,
             collate_fn=self.data_collator,
             drop_last=self.args.dataloader_drop_last,
-            num_workers=self.args.dataloader_num_workers,
-            pin_memory=self.args.dataloader_pin_memory,
+            num_workers=self.args.dataloader_num_workers
         )
 
     def _get_eval_sampler(self, eval_dataset):
