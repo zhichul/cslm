@@ -287,6 +287,7 @@ class Transformer(Module):
         encoder_attention_mask=None,
     ):
         batch_size = input_ids.size(0)
+        input_size = input_ids.size()
         device = input_ids.device
 
 
@@ -323,7 +324,7 @@ class Transformer(Module):
         hidden_states = self.ln_f(hidden_states)
 
         # resize the hidden states
-        output_shape = input_ids.size() + (hidden_states.size(-1),)
+        output_shape = input_size + (hidden_states.size(-1),)
         hidden_states = hidden_states.view(*output_shape)
 
         return hidden_states
