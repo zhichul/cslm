@@ -90,3 +90,9 @@ def seq_requires_grad(s1):
             continue
         cum += (m1.requires_grad,)
     return cum
+
+
+class ImmutableDict(dict):
+
+    def __set__(self, instance, value):
+        raise ValueError("Immutable")
