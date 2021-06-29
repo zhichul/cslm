@@ -28,13 +28,14 @@ def combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer):
 
     # get l2 vocab and shift
     l2_vocab = {k: v + l1_vocab_size for k,v in l2_tokenizer.get_vocab().items()}
-    l2_vocab_size = len(l2_vocab)
 
     # delete redundant items
     del l2_vocab["[BOS]"]
     del l2_vocab["[EOS]"]
     del l2_vocab["[UNK]"]
     del l2_vocab["[PAD]"]
+
+    l2_vocab_size = len(l2_vocab)
 
     # combine vocab
     combined_vocab = {}
