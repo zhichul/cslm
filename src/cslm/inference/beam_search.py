@@ -42,6 +42,9 @@ class BeamCell:
             self.freeze()
         return reversed(self.beams)
 
+    def __len__(self):
+        return len(self.beams)
+
 
 def grow_beams(cells=None,
                beam_ids=None,
@@ -148,7 +151,7 @@ def grow_beams(cells=None,
         None, ...]  # batch_size x num_bins x num_beams x new_prefix_length
     decoder_attention_mask = decoder_input_ids.new_ones(decoder_input_ids.size())
     cum_log_probs = torch.tensor(cum_log_probs_by_bin)[None, ..., None]
-    state = {k: torch.tensor(v)[..., None] for k, v in state_by_bin.items()}
+    state = {k: torch.tensor(v)[None, ..., None] for k, v in state_by_bin.items()}
     return {
         "decoder_input_ids": decoder_input_ids,
         "decoder_attention_mask": decoder_attention_mask,
@@ -198,7 +201,7 @@ def beam_search(model=None,
     cum_log_probs = torch.full((batch_size, num_bins, num_beams, 1), -1e9, dtype=torch.float32)
     cum_log_probs[0, 0, 0, 0] = 0.0
 
-    cells = [BeamCell(num_beams) for _ in range(num_bins)]
+    cells = [BeamCell(num_return_sequences) for _ in range(num_bins)]
 
     for t in range(max_length - 1):
         decoder_last_layer = model.base_model(
@@ -235,6 +238,10 @@ def beam_search(model=None,
         decoder_attention_mask = outputs["decoder_attention_mask"]
         cum_log_probs = outputs["cum_log_probs"]
         state = outputs["state"]
+    for b, cell in enumerate(cells):
+        if len(cell) < num_return_sequences:
+            for i in range(num_return_sequences - len(cell)):
+                cell.add(cum_log_probs[0, b, i, 0].item(), decoder_input_ids[0, b, i, :].tolist(), {k: v[0, b, i, 0].tolist() for k,v in state.items()})
     for cell in cells:
         cell.freeze()
     return cells

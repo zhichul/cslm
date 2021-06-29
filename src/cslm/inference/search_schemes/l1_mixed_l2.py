@@ -19,7 +19,8 @@ def update_state_factory(eos_ids):
             "l2_count": torch.where(next_is_eos, prefix_state["l2_count"],
                                     prefix_state["l2_count"] + next_is_l2),
             "tok_count":  torch.where(next_is_eos, prefix_state["tok_count"],
-                                      prefix_state["tok_count"] + next_is_l2.new_ones(next_is_l2.size()))
+                                      prefix_state["tok_count"] + next_is_l2.new_ones(next_is_l2.size())),
+            "last_token": token
         }
         return state
     return update_state
@@ -28,5 +29,6 @@ def update_state_factory(eos_ids):
 def initial_state(batch_size=None, num_bins=None, num_beams=None):
     return {
         "l2_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long),
-        "tok_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long)
+        "tok_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long),
+        "last_token": torch.full((batch_size, num_bins, num_beams, 1), -100, dtype=torch.long)
     }
