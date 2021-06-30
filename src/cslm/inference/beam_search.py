@@ -14,14 +14,14 @@ class BeamCell:
         self.frozen = False
         self.is_stochastic = is_stochastic
 
-    def add(self, score, ids, state):
+    def add(self, score, ids, meta):
         if self.frozen:
             raise ValueError("Cannot add to a frozen beam cell.")
         if len(self.beams) == self.size:
             if self.worst_score is None or score > self.worst_score:
-                heapq.heappushpop(self.beams, (score, ids, state))
+                heapq.heappushpop(self.beams, (score, ids, meta))
         else:
-            heapq.heappush(self.beams, (score, ids, state))
+            heapq.heappush(self.beams, (score, ids, meta))
         self.worst_score = self.beams[0][0]
 
     def freeze(self):
@@ -29,8 +29,8 @@ class BeamCell:
         heap = self.beams
         beams = []
         for i in range(len(heap)):
-            score, ids, state = heapq.heappop(heap)
-            beams.append((score, tuple(ids), ImmutableDict({k: v for k, v in state.items()})))
+            score, ids, meta = heapq.heappop(heap)
+            beams.append((score, tuple(ids), ImmutableDict({k: v for k, v in meta.items()})))
         self.beams = tuple(beams)
 
     def compute_importance_weights(self):
@@ -42,8 +42,8 @@ class BeamCell:
             raise ValueError("You can only compute weights on beam cells from stochastic beam search.")
         kappa = self.beams[0][0]
         self.beams[0][-1]["log_weight"] = -1e9
-        for score, ids, state in self.beams[1:]:
-            state["log_weight"] = log_importance_weight(kappa, state["log_prob"])
+        for score, ids, meta in self.beams[1:]:
+            meta["log_weight"] = log_importance_weight(kappa, meta["log_prob"])
 
     @staticmethod
     def merge(a, b, size=None):
@@ -164,7 +164,7 @@ def grow_beams(cells=None,
             if candidate_next_token.item() in eos_ids:
                 cells[b].add(score=candidate_cum_log_prob_perturbed.item(),
                              ids=candidate_prefix.tolist() + [candidate_next_token.item()],
-                             state={k: v[i].tolist() for k, v in topk_extension_state_of_bin.items()} | {"log_prob": candidate_cum_log_prob.item()})
+                             meta={k: v[i].tolist() for k, v in topk_extension_state_of_bin.items()} | {"log_prob": candidate_cum_log_prob.item()})
             else:
                 next_tokens_of_bin.append(candidate_next_token.tolist())
                 prefixes_of_bin.append(candidate_prefix.tolist())
@@ -300,9 +300,9 @@ def beam_search(model=None,
     for b, cell in enumerate(cells):
         if len(cell) < num_return_sequences:
             for i in range(num_return_sequences - len(cell)):
-                cell.add(gumbel_max[0, b, i, 0].item(),
-                         decoder_input_ids[0, b, i, :].tolist(),
-                         {k: v[0, b, i, 0].tolist() for k,v in state.items()} | {"log_prob": cum_log_probs[0, b, i, 0].item()})
+                cell.add(score=gumbel_max[0, b, i, 0].item(),
+                         ids=decoder_input_ids[0, b, i, :].tolist(),
+                         meta={k: v[0, b, i, 0].tolist() for k,v in state.items()} | {"log_prob": cum_log_probs[0, b, i, 0].item()})
         if do_sample:
             cell.compute_importance_weights()
         cell.freeze()
