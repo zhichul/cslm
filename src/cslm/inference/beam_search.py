@@ -221,7 +221,7 @@ def beam_search(model=None,
                 num_beams=None,
                 num_return_sequences=None,
                 num_bins=None,
-                initial_state=None,
+                fn_initial_state=None,
                 fn_update_state=None,
                 fn_assign_bin=None,
                 bos_id=None,
@@ -248,7 +248,7 @@ def beam_search(model=None,
                                                                                    vocab_size)
 
     # dynamic book keeping
-    state = initial_state
+    state = fn_initial_state(batch_size, num_bins, num_beams)
 
     cum_log_probs = torch.full((batch_size, num_bins, num_beams, 1), -1e9, dtype=torch.float32)
     cum_log_probs[0, 0, 0, 0] = 0.0

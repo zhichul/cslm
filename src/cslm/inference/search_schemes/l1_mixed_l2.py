@@ -1,5 +1,6 @@
 import torch
 
+NUM_BINS = 3
 
 def assign_bin_factory():
     def assign_bin(prefix_state):
@@ -26,9 +27,11 @@ def update_state_factory(eos_ids):
     return update_state
 
 
-def initial_state(batch_size=None, num_bins=None, num_beams=None):
-    return {
-        "l2_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long),
-        "tok_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long),
-        "last_token": torch.full((batch_size, num_bins, num_beams, 1), -100, dtype=torch.long)
-    }
+def initial_state_factory():
+    def initial_state(batch_size, num_bins, num_beams):
+        return {
+            "l2_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long),
+            "tok_count": torch.zeros((batch_size, num_bins, num_beams, 1), dtype=torch.long),
+            "last_token": torch.full((batch_size, num_bins, num_beams, 1), -100, dtype=torch.long)
+        }
+    return initial_state
