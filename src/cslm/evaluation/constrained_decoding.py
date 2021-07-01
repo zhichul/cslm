@@ -93,6 +93,7 @@ class ConstrainedDecodingEvaluation(Evaluation):
                 # do some extra logging
                 src = decode_input(eval_result["input_ids"], self.l0_tokenizer)
                 tgt = decode_output(eval_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
+                print(f"step: {step}", file=self.output_file)
                 print(f"src: {src}", file=self.output_file)
                 print(f"ref: {tgt}", file=self.output_file)
                 print(f"------------------------", file=self.output_file)
