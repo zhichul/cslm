@@ -160,6 +160,9 @@ class ExperimentArguments:
     decode_mode: Optional[str] = field(
         default=None, metadata={"help": "If set will run decoding, one of beam_search. Otherwise do not run decode."}
     )
+    decode_format: Optional[str] = field(
+        default="data", metadata={"help": "data, human"}
+    )
     decode_output: Optional[str] = field(
         default=None, metadata={"help": "Output of decoding. If set to None means print to terminal."}
     )
@@ -168,4 +171,7 @@ class ExperimentArguments:
     )
     decode_num_sequences: Optional[int] = field(
         default=5, metadata={"help": "Number of beams to return from beam search."}
+    )
+    decode_do_sample: Optional[bool] = field(
+        default=False, metadata={"help": "Whether to do stochastic decoding."}
     )

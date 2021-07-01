@@ -148,4 +148,37 @@ def max_gumbel(alpha, max):
 
 
 def log_importance_weight(kappa, phi):
-    return phi - np.log(gumbel_r.sf(kappa, loc=phi, scale=1))
+    return float(phi - np.log(gumbel_r.sf(kappa, loc=phi, scale=1)))
+
+
+def decode_output(ids, l1_tokenizer, l2_tokenizer):
+    tokens = []
+    bos_token_id = l1_tokenizer.token_to_id("[BOS]")
+    eos_token_id = l1_tokenizer.token_to_id("[EOS]")
+    l1_vocab_size = len(l1_tokenizer.get_vocab())
+    for id in ids:
+        if id == bos_token_id or id == eos_token_id:
+            token = "\033[1;37m" + l1_tokenizer.id_to_token(id) + "\033[0;0m"
+        elif id >= l1_vocab_size:
+            token = "\033[0;31m" + l2_tokenizer.id_to_token(id - len(l1_tokenizer.get_vocab())) + "\033[0;0m"
+        else:
+            token = "\033[0;34m" + l1_tokenizer.id_to_token(id) + "\033[0;0m"
+        tokens.append(token)
+        if id == eos_token_id:
+            break
+    return " ".join(tokens)
+
+
+def decode_input(ids, l0_tokenizer):
+    tokens = []
+    bos_token_id = l0_tokenizer.token_to_id("[BOS]")
+    eos_token_id = l0_tokenizer.token_to_id("[EOS]")
+    for id in ids:
+        if id == bos_token_id:
+            token = "\033[1;35m" + l0_tokenizer.id_to_token(id) + "\033[0;0m"
+        else:
+            token = "\033[0;35m" + l0_tokenizer.id_to_token(id) + "\033[0;0m"
+        tokens.append(token)
+        if id == eos_token_id:
+            break
+    return " ".join(tokens)

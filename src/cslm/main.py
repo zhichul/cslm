@@ -1,6 +1,7 @@
 import os
 import sys
 
+import orjson
 import torch
 from datasets import DatasetDict
 from torch import nn
@@ -10,14 +11,17 @@ from transformers.utils import logging
 
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
+from cslm.evaluation.constrained_decoding import ConstrainedDecodingEvaluation
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
 from cslm.training.mle_trainer import MLETrainer
 from cslm.training.utils import get_linear_schedule_with_warmup
-from cslm.utils import set_seed, seq_numel
+from cslm.utils import set_seed, seq_numel, decode_input, decode_output
 from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory
 from grid_utils import acquire_all_available_gpu
+
+import cslm.inference.search_schemes.l1_mixed_l2 as l1_mixed_l2
 
 def main():
     # * * * * * * * * * * * * * * * * * * * * CMD SETUP START * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
@@ -166,6 +170,49 @@ def main():
     #
     #
     # * * * * * * * * * * * * * * * * * * * * INFERENCE START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
+    if exp_args.decode_mode is None:
+        return
+
+    # setup output file
+    if exp_args.decode_output is None and exp_args.decode_format == "data":
+        output_file = sys.stdout.buffer
+    elif exp_args.decode_output is None and exp_args.decode_format == "human":
+        output_file = sys.stdout
+    elif exp_args.decode_output is not None and exp_args.decode_format == "data":
+        output_file = open(exp_args.decode_output, "wb")
+    elif exp_args.decode_output is not None and exp_args.decode_format == "human":
+        output_file = open(exp_args.decode_output, "wt")
+
+    # setup evaluation
+    if exp_args.decode_mode.startswith("l1_mixed_l2"):
+        bos_id = l1_tokenizer.token_to_id("[BOS]")
+        eos_ids = [l1_tokenizer.token_to_id("[EOS]")]
+        pad_id = l1_tokenizer.token_to_id("[PAD]")
+        vocab_size = len(l1_tokenizer.get_vocab()) + len(l2_tokenizer.get_vocab())
+        fn_initial_state = l1_mixed_l2.initial_state_factory()
+        fn_update_state = l1_mixed_l2.update_state_factory(eos_ids)
+        fn_assign_bin = l1_mixed_l2.assign_bin_factory()
+        num_bins = l1_mixed_l2.NUM_BINS
+        do_sample = exp_args.decode_do_sample
+        evaluation = ConstrainedDecodingEvaluation(model=model,
+                                                           args=exp_args,
+                                                           eval_dataset=datasets["validation"],
+                                                           data_collator=encoder_decoder_data_collator_factory(
+                                                                ignore_offset=l2_tokenizer.token_to_id("[EOS]")),
+                                                           bos_id=bos_id,
+                                                           eos_ids=eos_ids,
+                                                           pad_id=pad_id,
+                                                           vocab_size=vocab_size,
+                                                           fn_initial_state=fn_initial_state,
+                                                           fn_update_state=fn_update_state,
+                                                           fn_assign_bin=fn_assign_bin,
+                                                           num_bins=num_bins,
+                                                           do_sample=do_sample,
+                                                           l0_tokenizer=l0_tokenizer,
+                                                           l1_tokenizer=l1_tokenizer,
+                                                           l2_tokenizer=l2_tokenizer,
+                                                           output_file=output_file)
+        evaluation.evaluate_and_log()
 
 if __name__ == "__main__":
     main()

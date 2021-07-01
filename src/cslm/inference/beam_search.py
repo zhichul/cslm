@@ -194,14 +194,14 @@ def grow_beams(cells=None,
         for k, v in state_of_bin.items():
             state_by_bin[k].append(v)
     # pack
-    packed_next_tokens = torch.tensor(next_tokens_by_bin)[..., None]  # num_bins x num_beams x 1
-    packed_prefixes = torch.tensor(prefixes_by_bin)  # num_bins x num_beams x prefix_length
-    decoder_input_ids = torch.cat((packed_prefixes, packed_next_tokens), dim=-1)[
-        None, ...]  # batch_size x num_bins x num_beams x new_prefix_length
-    decoder_attention_mask = decoder_input_ids.new_ones(decoder_input_ids.size())
-    cum_log_probs = torch.tensor(cum_log_probs_by_bin)[None, ..., None]
-    cum_log_probs_perturbed = torch.tensor(cum_log_probs_perturbed_by_bin)[None, ..., None]
-    state = {k: torch.tensor(v)[None, ..., None] for k, v in state_by_bin.items()}
+    device = decoder_input_ids.device
+    packed_next_tokens = torch.tensor(next_tokens_by_bin, device=device)[..., None]  # num_bins x num_beams x 1
+    packed_prefixes = torch.tensor(prefixes_by_bin, device=device)  # num_bins x num_beams x prefix_length
+    decoder_input_ids = torch.cat((packed_prefixes, packed_next_tokens), dim=-1)[None, ...]  # batch_size x num_bins x num_beams x new_prefix_length
+    decoder_attention_mask = decoder_input_ids.new_ones(decoder_input_ids.size(), device=device)
+    cum_log_probs = torch.tensor(cum_log_probs_by_bin, device=device)[None, ..., None]
+    cum_log_probs_perturbed = torch.tensor(cum_log_probs_perturbed_by_bin, device=device)[None, ..., None]
+    state = {k: torch.tensor(v, device=device)[None, ..., None] for k, v in state_by_bin.items()}
     return {
         "decoder_input_ids": decoder_input_ids,
         "decoder_attention_mask": decoder_attention_mask,
@@ -233,27 +233,28 @@ def beam_search(model=None,
     # assert beam_size
     batch_size = input_ids.size(0)
     assert batch_size == 1
+    device = input_ids.device
 
     # initialize decoder with [BOS]
     if decoder_input_ids is None:
-        decoder_input_ids = torch.full((batch_size, num_bins, num_beams, 1), bos_id, dtype=torch.long)
+        decoder_input_ids = torch.full((batch_size, num_bins, num_beams, 1), bos_id, dtype=torch.long, device=device)
     if decoder_attention_mask is None:
-        decoder_attention_mask = torch.full((batch_size, num_bins, num_beams, 1), 1, dtype=torch.long)
+        decoder_attention_mask = torch.full((batch_size, num_bins, num_beams, 1), 1, dtype=torch.long, device=device)
 
     # constant book keeping
-    tokens = torch.arange(0, vocab_size, step=1, dtype=torch.long)[None, None, None, ...]
+    tokens = torch.arange(0, vocab_size, step=1, dtype=torch.long, device=device)[None, None, None, ...]
     tokens = tokens.expand(batch_size, num_bins, num_beams, vocab_size)
-    beam_ids = torch.arange(0, batch_size * num_bins * num_beams)[..., None]
+    beam_ids = torch.arange(0, batch_size * num_bins * num_beams, device=device)[..., None]
     beam_ids = beam_ids.expand(batch_size * num_bins * num_beams, vocab_size).view(batch_size, num_bins, num_beams,
                                                                                    vocab_size)
 
     # dynamic book keeping
-    state = fn_initial_state(batch_size, num_bins, num_beams)
+    state = fn_initial_state(batch_size, num_bins, num_beams, device=device)
 
-    cum_log_probs = torch.full((batch_size, num_bins, num_beams, 1), -1e9, dtype=torch.float32)
+    cum_log_probs = torch.full((batch_size, num_bins, num_beams, 1), -1e9, dtype=torch.float32, device=device)
     cum_log_probs[0, 0, 0, 0] = 0.0
 
-    gumbel_max = cum_log_probs.new_zeros(cum_log_probs.size())
+    gumbel_max = cum_log_probs.new_zeros(cum_log_probs.size(), device=device)
 
     cells = [BeamCell(num_return_sequences, is_stochastic=do_sample) for _ in range(num_bins)]
 
