@@ -118,19 +118,19 @@ class Trainer:
                 model.zero_grad()
                 tr_loss_scalar = 0.0
                 # eval save and log
-                if step % self.args.eval_steps == 0:
+                if step == 0 or (step + 1) % self.args.eval_steps == 0:
                     pass
-                if step % self.args.save_steps == 0:
-                    checkpoint_dir = f"checkpoint-{step}"
+                if step == 0 or (step + 1) % self.args.save_steps == 0:
+                    checkpoint_dir = f"checkpoint-{(step + 1)}"
                     output_dir = os.path.join(self.args.output_dir, checkpoint_dir)
                     os.makedirs(output_dir, exist_ok=True)
                     logger.info(f"Saving model checkpoint to {output_dir}")
                     torch.save(model.state_dict(), os.path.join(output_dir, "pytorch_model.bin"))
                     torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
                     torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                if step % self.args.logging_steps == 0:
+                if step == 0 or (step + 1) % self.args.logging_steps == 0:
                     avg_loss_scalar /= count
-                    logger.info({"step": step, "loss": avg_loss_scalar, "grad_norm": grad_norm_scalar})
+                    logger.info({"step": (step + 1), "loss": avg_loss_scalar, "grad_norm": grad_norm_scalar})
                     # reset avg_loss accumulators
                     avg_loss_scalar = 0.0
                     count = 0

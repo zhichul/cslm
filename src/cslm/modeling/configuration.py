@@ -32,7 +32,7 @@ class TransformerConfig(Config):
     attn_pdrop: float = field(default=0.1)
     resid_pdrop: float = field(default=0.1)
 
-    attn_type: str = field(default="multihead")
+    attn_type: str = field(default="transformer_multihead")
     activation_function: str = field(default="gelu")
 
     layer_norm_epsilon: float = field(default=1e-5)
@@ -46,3 +46,29 @@ class EncoderDecoderConfig(Config):
     model_type: str = "encoder_decoder"
     encoder_config: Config = field(default=None)
     decoder_config: Config = field(default=None)
+
+
+@dataclass
+class SoftmixConfig(Config):
+
+    model_type: str = "softmix"
+
+    n_embd: int = field(default=768)
+    n_head: int = field(default=12)
+    n_qk: int = field(default=768)
+    n_v: int = field(default=768)
+
+    attn_pdrop: float = field(default=0.1)
+    resid_pdrop: float = field(default=0.1)
+
+    attn_type: str = field(default="softmix_multihead")
+
+    layer_norm_epsilon: float = field(default=1e-5)
+    initializer_range: bool = field(default=0.02)
+
+    vocab_size: int = field(default=1)
+
+    transform: str = field(default="projection")
+    sharing: bool = field(default=True)
+    conditional: bool = field(default=True)
+    normalized: bool = field(default=True)

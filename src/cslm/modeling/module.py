@@ -28,17 +28,21 @@ class Module(nn.Module):
         self.exposed = OrderedDict()    # storage for intermediate tensors
         self.exposure_patterns = set()  # set of regular expressions
 
-    def expose(self, tensor, name, detach=True):
+    def expose(self, tensor, name):
         """
-        `tensor` will be stored under `name`, if the model is not in training mode,
-        and if the name is matched by one of a set of pre-specified regex.
+        `tensor` will be stored under `name`, if the name is matched
+        by one of a set of pre-specified regex.
         """
-        if not self.training and any(re.match(pattern, name) for pattern in self.exposure_patterns):
+        if any(re.match(pattern, name) for pattern in self.exposure_patterns):
             self.exposed[name] = tensor
         return tensor
 
     def release_exposed_tensors(self):
-        self.exposed = OrderedDict()
+        self.apply(self._release_exposed_tensors)
+
+    def _release_exposed_tensors(self, module):
+        if isinstance(module, Module):
+            module.exposed = OrderedDict()
 
     def named_exposed_tensors(self):
         """
@@ -47,7 +51,10 @@ class Module(nn.Module):
         for prefix, module in self.named_modules():
             if isinstance(module, Module):
                 for name, tensor in module.exposed.items():
-                    yield f"{prefix}.{name}", tensor
+                    if prefix:
+                        yield f"{prefix}.{name}", tensor
+                    else:
+                        yield f"{name}", tensor
 
     def add_exposure_pattern(self, name_pattern=".*", module_pattern=".*"):
         """

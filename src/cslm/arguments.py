@@ -85,17 +85,8 @@ class ExperimentArguments:
     decoder_config: str = field(
         default=None, metadata={"help": "Pretrained decoder config name if creating new model"}
     )
-    softmix: Optional[bool] = field(
-        default=False, metadata={"help": "whether to use mixture of softmax"}
-    )
-    softmix_n_heads: Optional[int] = field(
-        default=1, metadata={"help": "whether to use mixture of softmax"}
-    )
-    softmix_conditional: Optional[bool] = field(
-        default=False, metadata={"help": "whether to use conditional mixture of softmax"}
-    )
-    softmix_normalize: Optional[bool] = field(
-        default=False, metadata={"help": "whether to use normalized mixture of softmax"}
+    softmix_config: str = field(
+        default=None, metadata={"help": "Pretrained softmix config name if creating new model"}
     )
     max_length: Optional[int] = field(
         default=64, metadata={"help": "maximum length allowed including special tokens"}

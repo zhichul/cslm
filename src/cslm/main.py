@@ -15,6 +15,8 @@ from cslm.evaluation.constrained_decoding import ConstrainedDecodingEvaluation
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
+from cslm.modeling.softmix import SoftmixOutputLayer
+from cslm.modeling.transformer import TransformerLMHead
 from cslm.training.mle_trainer import MLETrainer
 from cslm.training.utils import get_linear_schedule_with_warmup
 from cslm.utils import set_seed, seq_numel, decode_input, decode_output
@@ -84,19 +86,23 @@ def main():
     encoder_config = Config.from_json(exp_args.encoder_config)
     decoder_config = Config.from_json(exp_args.decoder_config)
     encoder_decoder_config = EncoderDecoderConfig(encoder_config=encoder_config, decoder_config=decoder_config)
+    softmix_config = Config.from_json(exp_args.softmix_config) if exp_args.softmix_config else None
 
     if exp_args.train_task == "meaning_to_text":
         src_vocab_size = l0_tokenizer.get_vocab_size()
         target_vocab_size = l1_tokenizer.get_vocab_size() + l2_tokenizer.get_vocab_size()
         encoder_config.vocab_size = src_vocab_size
         decoder_config.vocab_size = target_vocab_size
+        if softmix_config is not None:
+            softmix_config.vocab_size = target_vocab_size
         base_model = EncoderDecoder(encoder_decoder_config)
 
     logger.info(f"Encoder Size: {seq_numel(tuple(base_model.encoder.parameters()))}")
     logger.info(f"Decoder Size: {seq_numel(tuple(base_model.decoder.parameters()))}")
     logger.info(f"Embedding Size (per 1 embedding module): {base_model.encoder.get_input_embeddings().num_embeddings * base_model.encoder.get_input_embeddings().embedding_dim}")
     heads = {
-        "softmax_lm_head": nn.Linear(decoder_config.n_embd, decoder_config.vocab_size, bias=False)
+        "softmax_lm_head": TransformerLMHead(decoder_config),
+        "softmix_lm_head": SoftmixOutputLayer(softmix_config) if softmix_config else None,
     }
 
     builder = HeadBuilder()

@@ -1,4 +1,4 @@
-import torch.nn as nn
+from cslm.modeling.module import Module
 
 
 class HeadBuilder:
@@ -19,10 +19,22 @@ class HeadBuilder:
         return Head(self.base_model, self.heads, self.names)
 
 
-class Head(nn.Module):
+class Head(Module):
 
     def __init__(self, base_model, heads, names):
         super().__init__()
         self.base_model = base_model
         for name, head in zip(names, heads):
             self.add_module(name, head)
+
+
+class LMHead(Module):
+    """
+    Interface for LMHead.
+    """
+    def forward(self,
+                hidden_states=None,
+                attention_mask=None,
+                encoder_hidden_states=None,
+                encoder_attention_mask=None):
+        raise NotImplementedError

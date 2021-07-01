@@ -1,19 +1,16 @@
-import os
-
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
-
 from cslm.training.trainer import Trainer
-from cslm.training.utils import sample_indefinitely, NumpyWeightedRandomSampler, compute_log_probs_with_mask
+from cslm.training.utils import compute_log_probs_with_mask
 from transformers.utils import logging
-import torch
-import tqdm
 
-from cslm.utils import seq_norm
 
 logger = logging.get_logger(__name__)
 
 
 class MLETrainer(Trainer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model.add_exposure_pattern("encoder_last_layer")
 
     def training_step(self, model, inputs):
         decoder_last_layer = model.base_model(
@@ -22,7 +19,14 @@ class MLETrainer(Trainer):
             decoder_input_ids=inputs["decoder_input_ids"],
             decoder_attention_mask=inputs["decoder_attention_mask"],
         )
-        logits = model.lm_head(decoder_last_layer)
+        exposed_tensors = dict(self.model.named_exposed_tensors())
+
+        logits = model.lm_head(hidden_states=decoder_last_layer,
+                               attention_mask=inputs["decoder_attention_mask"],
+                               encoder_hidden_states=exposed_tensors["base_model.encoder_last_layer"],
+                               encoder_attention_mask=inputs["attention_mask"])
+        # self.model.release_exposed_tensors()
+
 
         # compute loss
         batch_size = inputs["decoder_attention_mask"].size(0)

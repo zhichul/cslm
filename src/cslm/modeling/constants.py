@@ -1,4 +1,4 @@
-from cslm.modeling.configuration import TransformerConfig, EncoderDecoderConfig
+from cslm.modeling.configuration import TransformerConfig, EncoderDecoderConfig, SoftmixConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.transformer import Transformer
 
@@ -8,5 +8,6 @@ CLS_MAP = {
 }
 CFG_MAP = {
     "gpt2": TransformerConfig,
-    "encoder_decoder": EncoderDecoderConfig
+    "encoder_decoder": EncoderDecoderConfig,
+    "softmix": SoftmixConfig
 }
