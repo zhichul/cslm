@@ -149,8 +149,7 @@ def main():
     # * * * * * * * * * * * * * * * * * * * * TRAINING SETUP START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
     if exp_args.model_name_or_path:
         d = torch.load(exp_args.model_name_or_path)
-        d = {k:v for k,v in d.items() if "classifier" not in k}
-        model.load_state_dict(d, strict=False)
+        model.load_state_dict(d, strict=True)
         logger.info(f"loaded from {exp_args.model_name_or_path}")
     if exp_args.train_mode == "mle":
         trainer = MLETrainer(
@@ -176,49 +175,47 @@ def main():
     #
     #
     # * * * * * * * * * * * * * * * * * * * * INFERENCE START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
-    if exp_args.decode_mode is None:
-        return
+    if exp_args.decode_mode is not None:
+        # setup output file
+        if exp_args.decode_output is None and exp_args.decode_format == "data":
+            output_file = sys.stdout.buffer
+        elif exp_args.decode_output is None and exp_args.decode_format == "human":
+            output_file = sys.stdout
+        elif exp_args.decode_output is not None and exp_args.decode_format == "data":
+            output_file = open(exp_args.decode_output, "wb")
+        elif exp_args.decode_output is not None and exp_args.decode_format == "human":
+            output_file = open(exp_args.decode_output, "wt")
 
-    # setup output file
-    if exp_args.decode_output is None and exp_args.decode_format == "data":
-        output_file = sys.stdout.buffer
-    elif exp_args.decode_output is None and exp_args.decode_format == "human":
-        output_file = sys.stdout
-    elif exp_args.decode_output is not None and exp_args.decode_format == "data":
-        output_file = open(exp_args.decode_output, "wb")
-    elif exp_args.decode_output is not None and exp_args.decode_format == "human":
-        output_file = open(exp_args.decode_output, "wt")
-
-    # setup evaluation
-    if exp_args.decode_mode.startswith("l1_mixed_l2"):
-        bos_id = l1_tokenizer.token_to_id("[BOS]")
-        eos_ids = [l1_tokenizer.token_to_id("[EOS]")]
-        pad_id = l1_tokenizer.token_to_id("[PAD]")
-        vocab_size = len(l1_tokenizer.get_vocab()) + len(l2_tokenizer.get_vocab())
-        fn_initial_state = l1_mixed_l2.initial_state_factory()
-        fn_update_state = l1_mixed_l2.update_state_factory(eos_ids)
-        fn_assign_bin = l1_mixed_l2.assign_bin_factory()
-        num_bins = l1_mixed_l2.NUM_BINS
-        do_sample = exp_args.decode_do_sample
-        evaluation = ConstrainedDecodingEvaluation(model=model,
-                                                           args=exp_args,
-                                                           eval_dataset=datasets["validation"],
-                                                           data_collator=encoder_decoder_data_collator_factory(
-                                                                ignore_offset=l2_tokenizer.token_to_id("[EOS]")),
-                                                           bos_id=bos_id,
-                                                           eos_ids=eos_ids,
-                                                           pad_id=pad_id,
-                                                           vocab_size=vocab_size,
-                                                           fn_initial_state=fn_initial_state,
-                                                           fn_update_state=fn_update_state,
-                                                           fn_assign_bin=fn_assign_bin,
-                                                           num_bins=num_bins,
-                                                           do_sample=do_sample,
-                                                           l0_tokenizer=l0_tokenizer,
-                                                           l1_tokenizer=l1_tokenizer,
-                                                           l2_tokenizer=l2_tokenizer,
-                                                           output_file=output_file)
-        evaluation.evaluate_and_log()
+        # setup evaluation
+        if exp_args.decode_mode.startswith("l1_mixed_l2"):
+            bos_id = l1_tokenizer.token_to_id("[BOS]")
+            eos_ids = [l1_tokenizer.token_to_id("[EOS]")]
+            pad_id = l1_tokenizer.token_to_id("[PAD]")
+            vocab_size = len(l1_tokenizer.get_vocab()) + len(l2_tokenizer.get_vocab())
+            fn_initial_state = l1_mixed_l2.initial_state_factory()
+            fn_update_state = l1_mixed_l2.update_state_factory(eos_ids)
+            fn_assign_bin = l1_mixed_l2.assign_bin_factory()
+            num_bins = l1_mixed_l2.NUM_BINS
+            do_sample = exp_args.decode_do_sample
+            evaluation = ConstrainedDecodingEvaluation(model=model,
+                                                               args=exp_args,
+                                                               eval_dataset=datasets["validation"],
+                                                               data_collator=encoder_decoder_data_collator_factory(
+                                                                    ignore_offset=l2_tokenizer.token_to_id("[EOS]")),
+                                                               bos_id=bos_id,
+                                                               eos_ids=eos_ids,
+                                                               pad_id=pad_id,
+                                                               vocab_size=vocab_size,
+                                                               fn_initial_state=fn_initial_state,
+                                                               fn_update_state=fn_update_state,
+                                                               fn_assign_bin=fn_assign_bin,
+                                                               num_bins=num_bins,
+                                                               do_sample=do_sample,
+                                                               l0_tokenizer=l0_tokenizer,
+                                                               l1_tokenizer=l1_tokenizer,
+                                                               l2_tokenizer=l2_tokenizer,
+                                                               output_file=output_file)
+            evaluation.evaluate_and_log()
 
 if __name__ == "__main__":
     main()

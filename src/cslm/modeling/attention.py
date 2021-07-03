@@ -42,6 +42,7 @@ class MultiheadAttentionBase(Module):
         :return:
         """
         # compute QK^T
+        assert query.size()[:-3] == key.size()[:-3]
         attn_scores = torch.matmul(query, key.transpose(-1, -2))
 
         # scale by sqrt{d_k}

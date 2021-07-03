@@ -235,6 +235,10 @@ def beam_search(model=None,
     assert batch_size == 1
     device = input_ids.device
 
+    # expand dimensions of input ids
+    input_ids = input_ids[:, None, None, ...].expand(input_ids.size(0), num_bins, num_beams, *input_ids.size()[1:]) # batch bin beam seq
+    attention_mask = attention_mask[:, None, None, ...].expand(attention_mask.size(0), num_bins, num_beams, *attention_mask.size()[1:]) # batch bin beam seq
+
     # initialize decoder with [BOS]
     if decoder_input_ids is None:
         decoder_input_ids = torch.full((batch_size, num_bins, num_beams, 1), bos_id, dtype=torch.long, device=device)
@@ -258,6 +262,8 @@ def beam_search(model=None,
 
     cells = [BeamCell(num_return_sequences, is_stochastic=do_sample) for _ in range(num_bins)]
 
+    # extract intermediate outputs necessary for computation
+    model.add_exposure_pattern("encoder_last_layer")
     for t in range(max_length - 1):
         decoder_last_layer = model.base_model(
             input_ids=input_ids,
@@ -265,7 +271,12 @@ def beam_search(model=None,
             decoder_input_ids=decoder_input_ids,
             decoder_attention_mask=decoder_attention_mask,
         )
-        logits = model.lm_head(decoder_last_layer)[..., -1, :]
+        encoder_last_layer = dict(model.named_exposed_tensors())["base_model.encoder_last_layer"]
+        model.release_exposed_tensors()
+        logits = model.lm_head(hidden_states=decoder_last_layer,
+                               attention_mask=decoder_attention_mask,
+                               encoder_hidden_states=encoder_last_layer,
+                               encoder_attention_mask=attention_mask)[..., -1, :]
         next_word_log_probs = torch.log_softmax(logits, dim=-1)
 
         # expansion (broadcasting will happen here)

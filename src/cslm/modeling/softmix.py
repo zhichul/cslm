@@ -153,6 +153,13 @@ class SoftmixOutputLayer(LMHead):
                 attention_mask=None,
                 encoder_hidden_states=None,
                 encoder_attention_mask=None):
+        # reshape flatten
+        output_batch_size = hidden_states.size()[:-2]
+        hidden_states = hidden_states.reshape((-1,) + hidden_states.size()[-2:])
+        attention_mask = attention_mask.reshape((-1,) + attention_mask.size()[-1:])
+        encoder_hidden_states = encoder_hidden_states.reshape((-1,) + encoder_hidden_states.size()[-2:])
+        encoder_attention_mask = encoder_attention_mask.reshape((-1,) + encoder_attention_mask.size()[-1:])
+
         # preprocessing
         attention_mask = attention_mask[:, None, None,:]
         encoder_attention_mask = encoder_attention_mask[:, None, None, :]
@@ -186,6 +193,8 @@ class SoftmixOutputLayer(LMHead):
             scaled_logits_by_head = head_logits + vocab_logits # batch seq heads vocab
             logits = torch.logsumexp(scaled_logits_by_head, dim=-2) # batch seq vocab # this is true logits, not normalized
 
+        # reshape back
+        logits = logits.reshape(output_batch_size + logits.size()[-2:])
         return logits
 
 

@@ -25,7 +25,7 @@ class MLETrainer(Trainer):
                                attention_mask=inputs["decoder_attention_mask"],
                                encoder_hidden_states=exposed_tensors["base_model.encoder_last_layer"],
                                encoder_attention_mask=inputs["attention_mask"])
-        # self.model.release_exposed_tensors()
+        self.model.release_exposed_tensors()
 
 
         # compute loss

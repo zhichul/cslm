@@ -2,6 +2,9 @@ import re
 from collections import OrderedDict
 
 import torch.nn as nn
+from transformers.utils import logging
+
+logger = logging.get_logger(__name__)
 
 
 class Module(nn.Module):
@@ -34,6 +37,8 @@ class Module(nn.Module):
         by one of a set of pre-specified regex.
         """
         if any(re.match(pattern, name) for pattern in self.exposure_patterns):
+            if name in self.exposed:
+                logger.warning(f"Overwriting exposed tensor {name}, did you release exposed tensors after the last forward call?")
             self.exposed[name] = tensor
         return tensor
 
