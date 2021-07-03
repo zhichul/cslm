@@ -36,10 +36,24 @@ class BlockDiagonalProjection(Module):
             self.l.append(nn.Parameter(torch.zeros((n_out, n_in))))
 
     def forward(self, inputs):
+        return self.forward_time_heavy(inputs)
+
+    def forward_time_heavy(self, inputs):
+        batch, seq, head, n_v = inputs.size()
+        head_outputs = []
+        for h in range(self.n_block):
+            W = self.l[h]
+            batch_combined_input = inputs[..., h, :].reshape((-1, n_v))
+            flattented_output = torch.bmm(W[None, ...].expand(batch * seq, *W.size()), batch_combined_input[..., None])
+            reshaped_output = flattented_output.reshape((batch, seq, 1, self.n_out)) # batch * seq, 1 * n_out  -> batch, seq, 1, n_out
+            head_outputs.append(reshaped_output)
+        return torch.cat(head_outputs, dim=-2)
+
+    def forward_memory_heavy(self, inputs):
         batch, seq, head, n_v = inputs.size()
         block_diag = torch.block_diag(*self.l)
         batch_combined_and_head_combined_input = inputs.reshape((-1, head * n_v))
-        flattented_output = torch.matmul(block_diag[None, ...], batch_combined_and_head_combined_input[..., None])
+        flattented_output = torch.bmm(block_diag[None, ...].expand(batch * seq, *block_diag.size()), batch_combined_and_head_combined_input[..., None])
         reshaped_output = flattented_output.reshape((batch, seq, head, self.n_out)) # batch * seq, head * n_out  -> batch, seq, head, n_out
         return reshaped_output
 
