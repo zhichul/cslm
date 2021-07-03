@@ -11,7 +11,7 @@ from transformers.utils import logging
 
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
-from cslm.evaluation.constrained_decoding import ConstrainedDecodingEvaluation
+from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
@@ -197,25 +197,25 @@ def main():
             fn_assign_bin = l1_mixed_l2.assign_bin_factory()
             num_bins = l1_mixed_l2.NUM_BINS
             do_sample = exp_args.decode_do_sample
-            evaluation = ConstrainedDecodingEvaluation(model=model,
-                                                               args=exp_args,
-                                                               eval_dataset=datasets["validation"],
-                                                               data_collator=encoder_decoder_data_collator_factory(
+            evaluation = ConstrainedDecoding(model=model,
+                                             args=exp_args,
+                                             eval_dataset=datasets["validation"],
+                                             data_collator=encoder_decoder_data_collator_factory(
                                                                     ignore_offset=l2_tokenizer.token_to_id("[EOS]")),
-                                                               bos_id=bos_id,
-                                                               eos_ids=eos_ids,
-                                                               pad_id=pad_id,
-                                                               vocab_size=vocab_size,
-                                                               fn_initial_state=fn_initial_state,
-                                                               fn_update_state=fn_update_state,
-                                                               fn_assign_bin=fn_assign_bin,
-                                                               num_bins=num_bins,
-                                                               do_sample=do_sample,
-                                                               l0_tokenizer=l0_tokenizer,
-                                                               l1_tokenizer=l1_tokenizer,
-                                                               l2_tokenizer=l2_tokenizer,
-                                                               output_file=output_file)
-            evaluation.evaluate_and_log()
+                                             bos_id=bos_id,
+                                             eos_ids=eos_ids,
+                                             pad_id=pad_id,
+                                             vocab_size=vocab_size,
+                                             fn_initial_state=fn_initial_state,
+                                             fn_update_state=fn_update_state,
+                                             fn_assign_bin=fn_assign_bin,
+                                             num_bins=num_bins,
+                                             do_sample=do_sample,
+                                             l0_tokenizer=l0_tokenizer,
+                                             l1_tokenizer=l1_tokenizer,
+                                             l2_tokenizer=l2_tokenizer,
+                                             output_file=output_file)
+            evaluation.predict_and_log()
 
 if __name__ == "__main__":
     main()

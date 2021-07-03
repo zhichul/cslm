@@ -1,12 +1,12 @@
 import orjson
 import torch
 
-from cslm.evaluation.evaluation import Evaluation
+from cslm.evaluation.prediction import Prediction
 from cslm.inference.beam_search import beam_search
 from cslm.utils import decode_output, decode_input
 
 
-class ConstrainedDecodingEvaluation(Evaluation):
+class ConstrainedDecoding(Prediction):
 
     def __init__(self,
                   model=None,
@@ -40,7 +40,7 @@ class ConstrainedDecodingEvaluation(Evaluation):
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
 
-    def eval_step(self, model, inputs):
+    def predict_step(self, model, inputs):
         cells = beam_search(model=model,
                            input_ids=inputs["input_ids"],
                            attention_mask=inputs["attention_mask"],
@@ -83,26 +83,26 @@ class ConstrainedDecodingEvaluation(Evaluation):
                     "weight": weight
                 } | meta
 
-    def log_step(self, step, eval_result):
+    def log_step(self, step, predict_result):
         if self.args.decode_format == "data":
-            self.output_file.write(orjson.dumps(eval_result) + "\n".encode("utf-8"))
+            self.output_file.write(orjson.dumps(predict_result) + "\n".encode("utf-8"))
         elif self.args.decode_format == "human":
             # colorful terminal mode
             num_samples_per_example = self.num_bins * self.args.decode_num_sequences
             if step % num_samples_per_example == 0:
                 # do some extra logging
-                src = decode_input(eval_result["input_ids"], self.l0_tokenizer)
-                tgt = decode_output(eval_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
+                src = decode_input(predict_result["input_ids"], self.l0_tokenizer)
+                tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
                 print(f"step: {step}", file=self.output_file)
                 print(f"src: {src}", file=self.output_file)
                 print(f"ref: {tgt}", file=self.output_file)
                 print(f"------------------------", file=self.output_file)
-            output = decode_output(eval_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
-            line = f"score={eval_result['score']:<7.2f} " \
-                   + f"logprob={eval_result['log_prob']:<7.2f} " \
-                   + f"ce={eval_result['log_prob'] / eval_result['tok_count']:<7.2f} " \
-                   + f"l2%={eval_result['l2_count'] / eval_result['tok_count']:<7.2f} " \
-                   + f"weight={eval_result['weight']:<7.2f} " \
+            output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
+            line = f"score={predict_result['score']:<7.2f} " \
+                   + f"logprob={predict_result['log_prob']:<7.2f} " \
+                   + f"ce={predict_result['log_prob'] / predict_result['tok_count']:<7.2f} " \
+                   + f"l2%={predict_result['l2_count'] / predict_result['tok_count']:<7.2f} " \
+                   + f"weight={predict_result['weight']:<7.2f} " \
                    + f"{output}"
             print(line, file=self.output_file)
             if (step + 1) % self.args.decode_num_sequences == 0:
