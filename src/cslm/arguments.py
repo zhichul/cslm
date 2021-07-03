@@ -149,7 +149,7 @@ class ExperimentArguments:
     )
     # * * * * * * * * * * * * * * * * * * * * Inference  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     decode_mode: Optional[str] = field(
-        default=None, metadata={"help": "If set will run decoding, one of beam_search. Otherwise do not run decode."}
+        default=None, metadata={"help": "If set will run decoding, one of constrained_decoding. Otherwise do not run decode."}
     )
     decode_format: Optional[str] = field(
         default="data", metadata={"help": "data, human"}
@@ -165,4 +165,30 @@ class ExperimentArguments:
     )
     decode_do_sample: Optional[bool] = field(
         default=False, metadata={"help": "Whether to do stochastic decoding."}
+    )
+    decode_load_cache: Optional[str] = field(
+        default=None, metadata={"help": "Load from cache instead of actually decoding"}
+    )
+    decode_first_n: Optional[int] = field(
+        default=None, metadata={"help": "for debugging, only predict the first n examples"}
+    )
+    decode_overwrite_output: bool = field(
+        default=False, metadata={"help": "Overwrite the content of the decode output file."},
+    )
+    # * * * * * * * * * * * * * * * * * * * * Evaluation Inference  * * * * * * * * * * * * * * * * * * * * * * * * * #
+    eval_mode: Optional[str] = field(
+        default=None, metadata={"help": "If set will run evaluation, one of cross_entropy. Otherwise do not run decode."}
+    )
+    eval_output: Optional[str] = field(
+        default=None, metadata={"help": "Eval output file"}
+    )
+    eval_format: Optional[str] = field(
+        default="data", metadata={"help": "one of human/data."}
+    )
+    eval_reduction: Optional[str] = field(
+        default="macro", metadata={"help": "one of {'macro', 'micro', 'none'}"}
+    )
+    # * * * * * * * * * * * * * * * * * * * * Custom Evaluation  * * * * * * * * * * * * * * * * * * * * * * * * * * * #
+    eval_filter: Optional[List[str]] = field(
+        default=None, metadata={"help": "filter prediction outputs"}
     )

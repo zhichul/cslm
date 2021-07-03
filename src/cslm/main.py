@@ -12,6 +12,7 @@ from transformers.utils import logging
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
+from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
@@ -22,6 +23,7 @@ from cslm.training.utils import get_linear_schedule_with_warmup
 from cslm.utils import set_seed, seq_numel, decode_input, decode_output
 from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory
 from grid_utils import acquire_all_available_gpu
+from cslm.evaluation.constrained_decoding import constrained_decoding_bin_selector
 
 import cslm.inference.search_schemes.l1_mixed_l2 as l1_mixed_l2
 
@@ -47,6 +49,12 @@ def main():
     l0_tokenizer = load_and_setup_tokenizer(exp_args.l0_tokenizer, max_length=exp_args.max_length, pad_token="[PAD]")
     l1_tokenizer = load_and_setup_tokenizer(exp_args.l1_tokenizer, max_length=exp_args.max_length, pad_token="[PAD]")
     l2_tokenizer = load_and_setup_tokenizer(exp_args.l2_tokenizer, max_length=exp_args.max_length, pad_token="[PAD]")
+
+    # some useful globals
+    bos_id = l1_tokenizer.token_to_id("[BOS]")
+    eos_ids = [l1_tokenizer.token_to_id("[EOS]")]
+    pad_id = l1_tokenizer.token_to_id("[PAD]")
+    vocab_size = len(l1_tokenizer.get_vocab()) + len(l2_tokenizer.get_vocab())
     # * * * * * * * * * * * * * * * * * * * * TOKENIZER SETUP END * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     #
     #
@@ -78,6 +86,9 @@ def main():
             logger.info(f"Loaded {train_file} with {len(train_sub_dataset)} examples, and going to sample with weight {exp_args.train_weight[train_i]}.")
         train_dataset = ConcatDataset(train_datasets)
         datasets = DatasetDict({"train":train_dataset, "validation": valid_dataset})
+
+    # collator
+    data_collator = encoder_decoder_data_collator_factory(ignore_offset=l2_tokenizer.token_to_id("[EOS]"))
     # * * * * * * * * * * * * * * * * * * * * DATASET SETUP END * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     #
     #
@@ -157,7 +168,7 @@ def main():
             args=exp_args,
             train_dataset=datasets["train"],
             eval_dataset=datasets["validation"],
-            data_collator=encoder_decoder_data_collator_factory(ignore_offset=l2_tokenizer.token_to_id("[EOS]")),
+            data_collator=data_collator,
             optimizer=optimizer,
             lr_scheduler=lr_scheduler,
             train_dataset_weights=exp_args.train_weight,
@@ -175,33 +186,44 @@ def main():
     #
     #
     # * * * * * * * * * * * * * * * * * * * * INFERENCE START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
-    if exp_args.decode_mode is not None:
+    def setup_prediction():
+        if exp_args.decode_mode is None:
+            return None
         # setup output file
-        if exp_args.decode_output is None and exp_args.decode_format == "data":
+        if exp_args.decode_output is not None \
+                and exp_args.decode_output != "terminal" \
+                and os.path.exists(exp_args.decode_output) \
+                and not exp_args.decode_overwrite_output:
+            raise ValueError(f"{exp_args.decode_output} exists, please set decode_overwrite_output to true if you wish to overwrite.")
+        if exp_args.decode_output is None:
+            output_file = None
+        elif exp_args.decode_output == "terminal" and exp_args.decode_format == "data":
             output_file = sys.stdout.buffer
-        elif exp_args.decode_output is None and exp_args.decode_format == "human":
+        elif exp_args.decode_output == "terminal" and exp_args.decode_format == "human":
             output_file = sys.stdout
-        elif exp_args.decode_output is not None and exp_args.decode_format == "data":
+        elif exp_args.decode_output != "terminal" and exp_args.decode_format == "data":
             output_file = open(exp_args.decode_output, "wb")
-        elif exp_args.decode_output is not None and exp_args.decode_format == "human":
+        elif exp_args.decode_output != "terminal" and exp_args.decode_format == "human":
             output_file = open(exp_args.decode_output, "wt")
+        else:
+            raise ValueError(f"Unknown output / format: {exp_args.decode_output}/{exp_args.decode_format}")
 
-        # setup evaluation
+        if exp_args.decode_load_cache is not None:
+            cache_file = open(exp_args.decode_load_cache, "rb")
+        else:
+            cache_file = None
+
+        # setup prediction
         if exp_args.decode_mode.startswith("l1_mixed_l2"):
-            bos_id = l1_tokenizer.token_to_id("[BOS]")
-            eos_ids = [l1_tokenizer.token_to_id("[EOS]")]
-            pad_id = l1_tokenizer.token_to_id("[PAD]")
-            vocab_size = len(l1_tokenizer.get_vocab()) + len(l2_tokenizer.get_vocab())
             fn_initial_state = l1_mixed_l2.initial_state_factory()
             fn_update_state = l1_mixed_l2.update_state_factory(eos_ids)
             fn_assign_bin = l1_mixed_l2.assign_bin_factory()
             num_bins = l1_mixed_l2.NUM_BINS
             do_sample = exp_args.decode_do_sample
-            evaluation = ConstrainedDecoding(model=model,
+            prediction = ConstrainedDecoding(model=model,
                                              args=exp_args,
                                              eval_dataset=datasets["validation"],
-                                             data_collator=encoder_decoder_data_collator_factory(
-                                                                    ignore_offset=l2_tokenizer.token_to_id("[EOS]")),
+                                             data_collator=data_collator,
                                              bos_id=bos_id,
                                              eos_ids=eos_ids,
                                              pad_id=pad_id,
@@ -214,8 +236,63 @@ def main():
                                              l0_tokenizer=l0_tokenizer,
                                              l1_tokenizer=l1_tokenizer,
                                              l2_tokenizer=l2_tokenizer,
-                                             output_file=output_file)
-            evaluation.predict_and_log()
+                                             output_file=output_file,
+                                             cache_file=cache_file)
+        elif exp_args.decode_mode == "cross_entropy":
+            prediction = CrossEntropyPrediction(
+                model=model,
+                args=exp_args,
+                eval_dataset=datasets["validation"],
+                data_collator=data_collator,
+                output_file=output_file,
+                bos_id=bos_id,
+                eos_ids=eos_ids,
+                pad_id=pad_id,
+                vocab_size=vocab_size,
+                l0_tokenizer=l0_tokenizer,
+                l1_tokenizer=l1_tokenizer,
+                l2_tokenizer=l2_tokenizer,
+                cache_file=cache_file
+            )
+        else:
+            raise NotImplementedError
+        return prediction
+
+    def setup_evaluation(prediction):
+        if exp_args.eval_mode is None:
+            return None
+        if exp_args.eval_output is None:
+            output_file = None
+        elif exp_args.eval_output == "terminal" and exp_args.eval_format == "data":
+            output_file = sys.stdout.buffer
+        elif exp_args.eval_output == "terminal" and exp_args.eval_format == "human":
+            output_file = sys.stdout
+        elif exp_args.eval_output != "terminal" and exp_args.eval_format == "data":
+            output_file = open(exp_args.eval_output, "wb")
+        elif exp_args.eval_output != "terminal" and exp_args.eval_format == "human":
+            output_file = open(exp_args.eval_output, "wt")
+        else:
+            raise ValueError(f"Unknown output / format: {exp_args.eval_output}/{exp_args.eval_format}")
+        filters = [eval(filter) for filter in exp_args.eval_filter]
+        if exp_args.eval_mode == "cross_entropy":
+            evaluation = CrossEntropyEvaluation(prediction=prediction,
+                                                args=exp_args,
+                                                output_file=output_file,
+                                                reduction=exp_args.eval_reduction,
+                                                filters=filters)
+        else:
+            raise NotImplementedError
+        return evaluation
+
+
+    prediction = setup_prediction()
+    evaluation = setup_evaluation(prediction)
+    if exp_args.decode_mode is not None and exp_args.eval_mode is None:
+        # decode only mode
+        prediction.predict_and_log()
+    elif exp_args.decode_mode is not None and exp_args.eval_mode is not None:
+        # decode and eval mode
+        evaluation.evaluate_and_log()
 
 if __name__ == "__main__":
     main()

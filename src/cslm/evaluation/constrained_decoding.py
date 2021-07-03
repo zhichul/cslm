@@ -1,10 +1,17 @@
 import orjson
 import torch
+from transformers.utils import logging
 
 from cslm.evaluation.prediction import Prediction
 from cslm.inference.beam_search import beam_search
 from cslm.utils import decode_output, decode_input
 
+logger = logging.get_logger(__name__)
+
+def constrained_decoding_bin_selector(*args):
+    args = set(args)
+    logger.info(f"Filtering cells of constrained_decoding {{{', '.join(map(str, args))}}}")
+    return lambda prediction_result: prediction_result["cell_id"] in args
 
 class ConstrainedDecoding(Prediction):
 
@@ -14,6 +21,7 @@ class ConstrainedDecoding(Prediction):
                   eval_dataset=None,
                   data_collator=None,
                   output_file=None,
+                  cache_file=None,
                   bos_id=None,
                   eos_ids=None,
                   pad_id=None,
@@ -26,7 +34,12 @@ class ConstrainedDecoding(Prediction):
                   l0_tokenizer=None,
                   l1_tokenizer=None,
                   l2_tokenizer=None):
-        super().__init__(model=model, args=args, eval_dataset=eval_dataset, data_collator=data_collator, output_file=output_file)
+        super().__init__(model=model,
+                         args=args,
+                         eval_dataset=eval_dataset,
+                         data_collator=data_collator,
+                         output_file=output_file,
+                         cache_file=cache_file)
         self.bos_id = bos_id
         self.eos_ids = eos_ids
         self.pad_id = pad_id
@@ -40,7 +53,7 @@ class ConstrainedDecoding(Prediction):
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
 
-    def predict_step(self, model, inputs):
+    def _predict_step(self, model, inputs):
         cells = beam_search(model=model,
                            input_ids=inputs["input_ids"],
                            attention_mask=inputs["attention_mask"],
@@ -80,10 +93,11 @@ class ConstrainedDecoding(Prediction):
                     "output_length": len(ids),
                     "score": score,
                     "cell_id": b,
-                    "weight": weight
+                    "weight": weight,
+                    "cross_entropy": -meta["log_prob"] / meta["tok_count"],
                 } | meta
 
-    def log_step(self, step, predict_result):
+    def _log_step(self, step, predict_result):
         if self.args.decode_format == "data":
             self.output_file.write(orjson.dumps(predict_result) + "\n".encode("utf-8"))
         elif self.args.decode_format == "human":
@@ -100,7 +114,7 @@ class ConstrainedDecoding(Prediction):
             output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
             line = f"score={predict_result['score']:<7.2f} " \
                    + f"logprob={predict_result['log_prob']:<7.2f} " \
-                   + f"ce={predict_result['log_prob'] / predict_result['tok_count']:<7.2f} " \
+                   + f"ce={-predict_result['log_prob'] / predict_result['tok_count']:<7.2f} " \
                    + f"l2%={predict_result['l2_count'] / predict_result['tok_count']:<7.2f} " \
                    + f"weight={predict_result['weight']:<7.2f} " \
                    + f"{output}"
