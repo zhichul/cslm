@@ -1,5 +1,6 @@
 import os
 import sys
+from collections import OrderedDict
 
 import orjson
 import torch
@@ -11,6 +12,7 @@ from transformers.utils import logging
 
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
+from cslm.evaluation.evaluation import EvaluationList
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticPrecision, UnigramLanguageAgnosticRecall
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
@@ -163,17 +165,60 @@ def main():
         d = torch.load(exp_args.model_name_or_path)
         model.load_state_dict(d, strict=True)
         logger.info(f"loaded from {exp_args.model_name_or_path}")
+
+    # setup validation evaluation
+    validation_metrics = {
+        "cross_entropy": {
+            "prediction": "cross_entropy",
+            "evaluation": "cross_entropy",
+            "name": "cross_entropy"
+        }
+    }
+    validation_predictions = {
+        "cross_entropy": CrossEntropyPrediction(
+                model=model,
+                args=exp_args,
+                eval_dataset=datasets["validation"],
+                data_collator=data_collator,
+                output_file=None,
+                bos_id=bos_id,
+                eos_ids=eos_ids,
+                pad_id=pad_id,
+                vocab_size=vocab_size,
+                l0_tokenizer=l0_tokenizer,
+                l1_tokenizer=l1_tokenizer,
+                l2_tokenizer=l2_tokenizer,
+                cache_file=None
+            ),
+    }
+    validation_evaluations = {
+        "cross_entropy": CrossEntropyEvaluation(prediction=None,
+                                                args=exp_args,
+                                                output_file=None,
+                                                reduction="micro",
+                                                filters=list())
+    }
+    evaluations = OrderedDict()
+    for metric in exp_args.metrics:
+        metric_meta = validation_metrics[metric]
+        pred_key, eval_key, name = metric_meta["prediction"], metric_meta["evaluation"], metric_meta["name"]
+        if pred_key not in evaluations:
+            evaluations[pred_key] = EvaluationList(prediction=validation_predictions[pred_key],
+                                                   args=exp_args,
+                                                   output_file=None)
+        evaluations[pred_key].add_evaluation(name, validation_evaluations[eval_key])
+
     if exp_args.train_mode == "mle":
         trainer = MLETrainer(
             model=model,
             args=exp_args,
             train_dataset=datasets["train"],
-            eval_dataset=datasets["validation"],
             data_collator=data_collator,
             optimizer=optimizer,
             lr_scheduler=lr_scheduler,
             train_dataset_weights=exp_args.train_weight,
             train_dataset_lengths=train_dataset_lengths,
+            evaluations=evaluations
         )
     # * * * * * * * * * * * * * * * * * * * * TRAINING SETUP END * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
     #

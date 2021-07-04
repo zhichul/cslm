@@ -147,6 +147,9 @@ class ExperimentArguments:
     dataset_num_workers: Optional[int] = field(
         default=1, metadata={"help": "number of processes for loading dataset"}
     )
+    metrics: Optional[List[str]] = field(
+        default_factory=list, metadata={"help": "list of metrics to use for validation during training"}
+    )
     # * * * * * * * * * * * * * * * * * * * * Inference  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     decode_mode: Optional[str] = field(
         default=None, metadata={"help": "If set will run decoding, one of constrained_decoding. Otherwise do not run decode."}

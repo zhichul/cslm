@@ -1,5 +1,9 @@
 import os
+from collections import OrderedDict, defaultdict
+from datetime import timezone, datetime, timedelta
 
+import orjson
+from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from cslm.training.utils import sample_indefinitely, NumpyWeightedRandomSampler
 from transformers.utils import logging
@@ -17,21 +21,23 @@ class Trainer:
                     model=None,
                     args=None,
                     train_dataset=None,
-                    eval_dataset=None,
                     data_collator=None,
                     optimizer=None,
                     lr_scheduler=None,
                     train_dataset_weights=None,
-                    train_dataset_lengths=None):
+                    train_dataset_lengths=None,
+                    evaluations=None):
         self.model = model
         self.args = args
         self.train_dataset = train_dataset
-        self.eval_dataset = eval_dataset
         self.data_collator = data_collator
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.train_dataset_weights = train_dataset_weights
         self.train_dataset_lengths = train_dataset_lengths
+        self.evaluations = evaluations if evaluations is not None else dict()
+        self.tensorboard = SummaryWriter(os.path.join(self.args.logging_dir,
+                                                      datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")))
 
     def get_train_dataloader(self):
         train_sampler = self._get_train_sampler()
@@ -56,23 +62,6 @@ class Trainer:
                 NumpyWeightedRandomSampler(weights, len(weights))
             )
 
-    def get_eval_dataloader(self, eval_dataset=None):
-        if eval_dataset is None:
-            eval_dataset = self.eval_dataset
-        eval_sampler = self._get_eval_sampler(eval_dataset)
-
-        return DataLoader(
-            eval_dataset,
-            sampler=eval_sampler,
-            batch_size=self.args.per_device_eval_batch_size,
-            collate_fn=self.data_collator,
-            drop_last=self.args.dataloader_drop_last,
-            num_workers=self.args.dataloader_num_workers
-        )
-
-    def _get_eval_sampler(self, eval_dataset):
-        return SequentialSampler(eval_dataset)
-
     def training_step(self, model, inputs):
         raise NotImplementedError
 
@@ -93,6 +82,7 @@ class Trainer:
         logger.info(f"  Gradient Accumulation steps = {self.args.gradient_accumulation_steps}")
         logger.info(f"  Total optimization steps = {max_steps}")
 
+        state = {"logs": defaultdict(dict)}
         # train
         tr_loss_scalar = 0.0
         avg_loss_scalar = 0.0
@@ -117,9 +107,23 @@ class Trainer:
                 # reset grads and loss scalars
                 model.zero_grad()
                 tr_loss_scalar = 0.0
-                # eval save and log
+                # log eval save
+                if step == 0 or (step + 1) % self.args.logging_steps == 0:
+                    avg_loss_scalar /= count
+                    summary = {"step": (step + 1), "loss": avg_loss_scalar, "grad_norm": grad_norm_scalar}
+                    logger.info(summary)
+                    self.log_to_tensorboard(step + 1, {f"train/{k}":v for k, v in summary.items()})
+                    state["logs"][str(step + 1)]["train"] = summary
+                    # reset avg_loss accumulators
+                    avg_loss_scalar = 0.0
+                    count = 0
                 if step == 0 or (step + 1) % self.args.eval_steps == 0:
-                    pass
+                    summary = {"step": (step + 1)}
+                    for eval_list in self.evaluations.values():
+                        summary |= eval_list.evaluate()
+                    logger.info(summary)
+                    self.log_to_tensorboard(step + 1, {f"eval/{k}":v for k, v in summary.items()})
+                    state["logs"][str(step + 1)]["eval"] = summary
                 if step == 0 or (step + 1) % self.args.save_steps == 0:
                     checkpoint_dir = f"checkpoint-{(step + 1)}"
                     output_dir = os.path.join(self.args.output_dir, checkpoint_dir)
@@ -128,13 +132,18 @@ class Trainer:
                     torch.save(model.state_dict(), os.path.join(output_dir, "pytorch_model.bin"))
                     torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
                     torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                if step == 0 or (step + 1) % self.args.logging_steps == 0:
-                    avg_loss_scalar /= count
-                    logger.info({"step": (step + 1), "loss": avg_loss_scalar, "grad_norm": grad_norm_scalar})
-                    # reset avg_loss accumulators
-                    avg_loss_scalar = 0.0
-                    count = 0
+                    with open(os.path.join(output_dir, "state.json"), "wb") as f:
+                        f.write(orjson.dumps(state, option=orjson.OPT_INDENT_2) + "\n".encode("utf-8"))
+
 
         logger.info("\n\nTraining completed.\n\n")
+
+    def log_to_tensorboard(self, step, d, prefix=""):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                self.log_to_tensorboard(step, v, prefix=f"{prefix}.{k}" if prefix else k)
+            else:
+                self.tensorboard.add_scalar(f"{prefix}.{k}" if prefix else k,v,step)
+
 
 
