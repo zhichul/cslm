@@ -75,7 +75,7 @@ class UnigramLanguageAgnosticRecall(Evaluation):
         output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
         ref = untag(ref[1:-1])
         output = untag(output[1:-1])
-        score = sentence_bleu([ref], output, weights=(1, 0, 0, 0))
+        score = sentence_bleu([output], ref, weights=(1, 0, 0, 0))
         if self.reduction == "macro":
             self.score += predict_result["weight"] * score
             self.count += predict_result["weight"]
