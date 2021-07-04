@@ -117,13 +117,18 @@ class CrossEntropyEvaluation(Evaluation):
         else:
             raise NotImplementedError
 
-    def log(self):
-        result = {
+    @property
+    def summary(self):
+        return {
                 "cross_entropy": self.score / self.count,
                 "n_examples": self.count,
-            }
+        }
+
+    def log(self, summary):
         if self.args.eval_format == "human":
-            print(f"{result['n_examples']:.2f} weighted examples, with {self.reduction} average entropy (token level) {result['cross_entropy']:.2f}, perplexity {math.exp(result['cross_entropy']):.1f}.", file=self.output_file)
+            print(f"{summary['n_examples']:.2f} weighted examples, "
+                  f"with {self.reduction} average entropy (token level) {summary['cross_entropy']:.2f}, "
+                  f"perplexity {math.exp(summary['cross_entropy']):.1f}.", file=self.output_file)
         elif self.args.eval_format == "data":
-            self.output_file.write(orjson.dumps(result) + "\n".encode("utf-8"))
+            self.output_file.write(orjson.dumps(summary) + "\n".encode("utf-8"))
 

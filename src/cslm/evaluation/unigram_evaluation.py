@@ -40,15 +40,18 @@ class UnigramLanguageAgnosticPrecision(Evaluation):
         else:
             raise NotImplementedError
 
-    def log(self):
-        result = {
+    @property
+    def summary(self):
+        return {
                 "unigram_precision": self.score / self.count,
                 "n_examples": self.count,
-            }
+        }
+
+    def log(self, summary):
         if self.args.eval_format == "human":
-            print(f"{result['n_examples']:.2f} weighted examples, with {self.reduction} average unigram precision {result['unigram_precision']:.2f}.", file=self.output_file)
+            print(f"{summary['n_examples']:.2f} weighted examples, with {self.reduction} average unigram precision {summary['unigram_precision']:.2f}.", file=self.output_file)
         elif self.args.eval_format == "data":
-            self.output_file.write(orjson.dumps(result) + "\n".encode("utf-8"))
+            self.output_file.write(orjson.dumps(summary) + "\n".encode("utf-8"))
 
 class UnigramLanguageAgnosticRecall(Evaluation):
 
@@ -85,12 +88,15 @@ class UnigramLanguageAgnosticRecall(Evaluation):
         else:
             raise NotImplementedError
 
-    def log(self):
-        result = {
+    @property
+    def summary(self):
+        return {
                 "unigram_recall": self.score / self.count,
                 "n_examples": self.count,
-            }
+        }
+
+    def log(self, summary):
         if self.args.eval_format == "human":
-            print(f"{result['n_examples']:.2f} weighted examples, with {self.reduction} average unigram recall {result['unigram_recall']:.2f}.", file=self.output_file)
+            print(f"{summary['n_examples']:.2f} weighted examples, with {self.reduction} average unigram recall {summary['unigram_recall']:.2f}.", file=self.output_file)
         elif self.args.eval_format == "data":
-            self.output_file.write(orjson.dumps(result) + "\n".encode("utf-8"))
+            self.output_file.write(orjson.dumps(summary) + "\n".encode("utf-8"))

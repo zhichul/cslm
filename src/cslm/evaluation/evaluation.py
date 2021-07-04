@@ -23,16 +23,21 @@ class Evaluation:
     def eval_step(self, predict_result):
         raise NotImplementedError
 
-    def log(self):
+    @property
+    def summary(self):
+        raise NotImplementedError
+
+    def log(self, summary):
         raise NotImplementedError
 
     def evaluate_and_log(self):
-        self.evaluate()
+        summary = self.evaluate()
         if self.output_file is not None:
-            self.log()
+            self.log(summary)
 
     def evaluate(self):
         for predict_result in self.prediction.predict_and_log():
             if all(predictate(predict_result) for predictate in self.filters):
                 self.eval_step(predict_result)
         logger.info("\n\nEvaluation completed.\n\n")
+        return self.summary
