@@ -17,6 +17,8 @@ class Evaluation:
             raise ValueError(f"Reduction must be one of {{'micro', 'macro', 'none'}}, got {reduction}")
         self.reduction = reduction
         self.filters = filters
+        self.score = 0
+        self.count = 0
 
     def eval_step(self, predict_result):
         raise NotImplementedError

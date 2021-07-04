@@ -11,6 +11,7 @@ from transformers.utils import logging
 
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
+from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticPrecision, UnigramLanguageAgnosticRecall
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
@@ -280,6 +281,24 @@ def main():
                                                 output_file=output_file,
                                                 reduction=exp_args.eval_reduction,
                                                 filters=filters)
+        elif exp_args.eval_mode == "unigram_precision":
+            evaluation = UnigramLanguageAgnosticPrecision(prediction=prediction,
+                                                          args=exp_args,
+                                                          output_file=output_file,
+                                                          reduction=exp_args.eval_reduction,
+                                                          filters=filters,
+                                                          l0_tokenizer=l0_tokenizer,
+                                                          l1_tokenizer=l1_tokenizer,
+                                                          l2_tokenizer=l2_tokenizer)
+        elif exp_args.eval_mode == "unigram_recall":
+            evaluation = UnigramLanguageAgnosticRecall(prediction=prediction,
+                                                          args=exp_args,
+                                                          output_file=output_file,
+                                                          reduction=exp_args.eval_reduction,
+                                                          filters=filters,
+                                                          l0_tokenizer=l0_tokenizer,
+                                                          l1_tokenizer=l1_tokenizer,
+                                                          l2_tokenizer=l2_tokenizer)
         else:
             raise NotImplementedError
         return evaluation

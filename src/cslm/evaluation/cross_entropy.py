@@ -107,31 +107,20 @@ class CrossEntropyPrediction(Prediction):
 
 class CrossEntropyEvaluation(Evaluation):
 
-    def __init__(self,
-                 prediction=None,
-                 args=None,
-                 output_file=None,
-                 reduction=None,
-                 filters=None
-                 ):
-        super().__init__(prediction=prediction, args=args, output_file=output_file, reduction=reduction, filters=filters)
-        self.ssum = 0
-        self.scount = 0
-
     def eval_step(self, predict_result):
         if self.reduction == "macro":
-            self.ssum += predict_result["weight"] *predict_result["cross_entropy"]
-            self.scount += predict_result["weight"]
+            self.score += predict_result["weight"] *predict_result["cross_entropy"]
+            self.count += predict_result["weight"]
         elif self.reduction == "micro":
-            self.ssum +=  predict_result["weight"] * (predict_result["output_length"] - 1) * predict_result["cross_entropy"]
-            self.scount += predict_result["weight"] * (predict_result["decoder_input_length"] - 1)
+            self.score +=  predict_result["weight"] * predict_result["tok_count"]  * predict_result["cross_entropy"]
+            self.count += predict_result["weight"] * predict_result["tok_count"]
         else:
             raise NotImplementedError
 
     def log(self):
         result = {
-                "cross_entropy": self.ssum / self.scount,
-                "n_examples": self.scount,
+                "cross_entropy": self.score / self.count,
+                "n_examples": self.count,
             }
         if self.args.eval_format == "human":
             print(f"{result['n_examples']:.2f} weighted examples, with {self.reduction} average entropy (token level) {result['cross_entropy']:.2f}, perplexity {math.exp(result['cross_entropy']):.1f}.", file=self.output_file)
