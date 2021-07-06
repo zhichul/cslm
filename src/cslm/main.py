@@ -164,7 +164,8 @@ def main():
     #
     # * * * * * * * * * * * * * * * * * * * * TRAINING SETUP START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
     if exp_args.model_name_or_path:
-        d = torch.load(exp_args.model_name_or_path)
+        d = torch.load(exp_args.model_name_or_path, map_location=torch.device("cuda") if torch.cuda.is_available()
+                                                            else torch.device("cpu"))
         model.load_state_dict(d, strict=True)
         logger.info(f"loaded from {exp_args.model_name_or_path}")
 

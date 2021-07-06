@@ -1,10 +1,11 @@
 import orjson
 import torch
+from nltk.translate.bleu_score import sentence_bleu
 from transformers.utils import logging
 
 from cslm.evaluation.prediction import Prediction
 from cslm.inference.beam_search import beam_search
-from cslm.utils import decode_output, decode_input
+from cslm.utils import decode_output, decode_input, untag, background, gradient_background
 
 logger = logging.get_logger(__name__)
 
@@ -18,6 +19,16 @@ def constrained_decoding_length_selector(*args):
     logger.info(f"Filtering lengths of constrained_decoding {{{', '.join(map(str, args))}}}")
     return lambda prediction_result: prediction_result["decoder_input_length"] - 2 in args
 
+
+def language_agnostic_token_matcher():
+    # logger.info(f"Filtering underlining in output by containment in language agnostic reference output.")
+    def filter_factory(tgt=None):
+        tgt = set(t[:-2] for t in tgt[1:-1]) # get rid of language tag
+        def filter(token):
+            return token[:-2] in tgt
+        return filter
+    return filter_factory
+
 class ConstrainedDecoding(Prediction):
 
     def __init__(self,
@@ -27,6 +38,7 @@ class ConstrainedDecoding(Prediction):
                   data_collator=None,
                   output_file=None,
                   cache_file=None,
+                  format_filter_factories=None,
                   bos_id=None,
                   eos_ids=None,
                   pad_id=None,
@@ -116,11 +128,25 @@ class ConstrainedDecoding(Prediction):
                 print(f"src: {src}", file=self.output_file)
                 print(f"ref: {tgt}", file=self.output_file)
                 print(f"------------------------", file=self.output_file)
+
+            # prepare outputs
             output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
+            ref_toks = untag(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
+                                color=False)[1:-1])
+            out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
+                                   color=False)[1:-1])
+            pcs = sentence_bleu([ref_toks], out_toks, weights=(1.0, 0.0, 0.0, 0.0))
+            rcl = sentence_bleu([out_toks], ref_toks, weights=(1.0, 0.0, 0.0, 0.0))
+
+            # if you want highlight on tokens that match the reference
+            # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, highlight_filter=language_agnostic_token_matcher()(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)))
             line = f"score={predict_result['score']:<7.2f} " \
                    + f"logprob={predict_result['log_prob']:<7.2f} " \
                    + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1) :<7.2f} " \
+                   + background(f"pcs={pcs :<7.2f}", gradient_background(pcs)) + " " \
+                   + background(f"rcl={pcs :<7.2f}", gradient_background(rcl)) + " "\
                    + f"l2%={(predict_result['l2_count'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
+                   + (f"cs%={(predict_result['switch_count'] / predict_result['fence_count']) if predict_result['fence_count'] > 0 else 0:<7.2f} " if  "fence_count" in predict_result else "") \
                    + f"weight={predict_result['weight']:<7.2f} " \
                    + f"{output}"
             print(line, file=self.output_file)

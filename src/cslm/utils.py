@@ -150,19 +150,50 @@ def max_gumbel(alpha, max):
 def log_importance_weight(kappa, phi):
     return float(phi - np.log(gumbel_r.sf(kappa, loc=phi, scale=1)))
 
+def red(s):
+    return f"\033[31m{s}\033[0m"
 
-def decode_output(ids, l1_tokenizer, l2_tokenizer, join=True, color=True):
+def blue(s):
+    return f"\033[34m{s}\033[0m"
+
+def pink(s):
+    return f"\033[35m{s}\033[0m"
+
+def white(s):
+    return f"\033[37m{s}\033[0m"
+
+def bold(s):
+    return f"\033[1m{s}\033[0m"
+
+def underline(s):
+    return f"\033[4m{s}\033[24m"
+
+def invert(s):
+    return f"\033[7m{s}\033[27m"
+
+def highlight(s):
+    return f"\033[48;5;10m{s}\033[0m"
+
+def decode_output(ids, l1_tokenizer, l2_tokenizer, join=True, color=True, underline_filter=None, invert_filter=None, highlight_filter=None):
     tokens = []
     bos_token_id = l1_tokenizer.token_to_id("[BOS]")
     eos_token_id = l1_tokenizer.token_to_id("[EOS]")
     l1_vocab_size = len(l1_tokenizer.get_vocab())
     for id in ids:
+        ofs = []
+        ofe = []
         if id == bos_token_id or id == eos_token_id:
-            token = ("\033[1;37m" if color else "") + l1_tokenizer.id_to_token(id) + ("\033[0;0m" if color else "")
+            raw_token = l1_tokenizer.id_to_token(id)
+            token = bold(white(raw_token)) if color else raw_token
         elif id >= l1_vocab_size:
-            token = ("\033[0;31m" if color else "") + l2_tokenizer.id_to_token(id - len(l1_tokenizer.get_vocab())) + ("\033[0;0m" if color else "")
+            raw_token = l2_tokenizer.id_to_token(id - len(l1_tokenizer.get_vocab()))
+            token = red(raw_token) if color else raw_token
         else:
-            token = ("\033[0;34m"  if color else "") + l1_tokenizer.id_to_token(id) + ("\033[0;0m" if color else "")
+            raw_token = l1_tokenizer.id_to_token(id)
+            token = blue(raw_token)  if color else raw_token
+        token = underline(token) if underline_filter is not None and underline_filter(raw_token) else token
+        token = invert(token) if invert_filter is not None and invert_filter(raw_token) else token
+        token = highlight(token) if highlight_filter is not None and highlight_filter(raw_token) else token
         tokens.append(token)
         if id == eos_token_id:
             break
@@ -176,10 +207,11 @@ def decode_input(ids, l0_tokenizer, join=True, color=True):
     bos_token_id = l0_tokenizer.token_to_id("[BOS]")
     eos_token_id = l0_tokenizer.token_to_id("[EOS]")
     for id in ids:
+        token = l0_tokenizer.id_to_token(id)
         if id == bos_token_id:
-            token = ("\033[1;35m" if color else "") + l0_tokenizer.id_to_token(id) + ("\033[0;0m" if color else "")
+            token = bold(white(token)) if color else token
         else:
-            token = ("\033[0;35m" if color else "") + l0_tokenizer.id_to_token(id) + ("\033[0;0m" if color else "")
+            token = pink(token) if color else token
         tokens.append(token)
         if id == eos_token_id:
             break
@@ -191,3 +223,12 @@ def decode_input(ids, l0_tokenizer, join=True, color=True):
 
 def untag(tokens):
     return [token[:-2] for token in tokens]
+
+def background(tok, color):
+    return f"\033[48;5;{color}m{tok}\033[0m"
+
+def gradient_background(f):
+    i = round(f * 10)
+    colors = [196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46]
+    color = colors[i]
+    return color

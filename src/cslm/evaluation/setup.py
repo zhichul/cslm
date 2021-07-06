@@ -5,7 +5,7 @@ from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyPrediction, CrossEntropyEvaluation
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
 
-from cslm.inference.search_schemes import l1_mixed_l2, l1_3_l2, l1_5_l2
+from cslm.inference.search_schemes import l1_mixed_l2, l1_3_l2, l1_5_l2, switch_5
 from cslm.evaluation.constrained_decoding import constrained_decoding_bin_selector, constrained_decoding_length_selector
 
 
@@ -138,6 +138,30 @@ def setup_prediction(exp_args=None,
             l2_tokenizer=l2_tokenizer,
             cache_file=cache_file
         )
+    elif exp_args.decode_mode == "switch_5":
+        fn_initial_state = switch_5.initial_state_factory()
+        fn_update_state = switch_5.update_state_factory(eos_ids)
+        fn_assign_bin = switch_5.assign_bin_factory()
+        num_bins = switch_5.NUM_BINS
+        do_sample = exp_args.decode_do_sample
+        prediction = ConstrainedDecoding(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         bos_id=bos_id,
+                                         eos_ids=eos_ids,
+                                         pad_id=pad_id,
+                                         vocab_size=vocab_size,
+                                         fn_initial_state=fn_initial_state,
+                                         fn_update_state=fn_update_state,
+                                         fn_assign_bin=fn_assign_bin,
+                                         num_bins=num_bins,
+                                         do_sample=do_sample,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file)
     else:
         raise NotImplementedError
     return prediction
