@@ -99,7 +99,7 @@ class ConstrainedDecoding(Prediction):
                     "score": score,
                     "cell_id": b,
                     "weight": weight,
-                    "cross_entropy": -meta["log_prob"] / meta["tok_count"] if meta["tok_count"] > 0 else 0,
+                    "cross_entropy": -meta["log_prob"] / (meta["tok_count"] + 1),
                 } | meta
 
     def _log_step(self, step, predict_result):
@@ -119,7 +119,7 @@ class ConstrainedDecoding(Prediction):
             output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
             line = f"score={predict_result['score']:<7.2f} " \
                    + f"logprob={predict_result['log_prob']:<7.2f} " \
-                   + f"ce={(-predict_result['log_prob'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
+                   + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1) :<7.2f} " \
                    + f"l2%={(predict_result['l2_count'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
                    + f"weight={predict_result['weight']:<7.2f} " \
                    + f"{output}"

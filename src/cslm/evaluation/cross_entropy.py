@@ -75,7 +75,7 @@ class CrossEntropyPrediction(Prediction):
                     "weight": 1.0,
                     "log_prob": sent_log_prob.item(),
                     "cross_entropy": loss.item(),
-                    "tok_count": total_tokens.item()
+                    "tok_count": total_tokens.item() - 1,
                 }
 
     def _log_step(self, step, predict_result):
@@ -94,7 +94,7 @@ class CrossEntropyPrediction(Prediction):
                 print(f"------------------------", file=self.output_file)
             output = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
             line = f"logprob={predict_result['log_prob']:<7.3f} " \
-                   + f"ce={-predict_result['log_prob'] / predict_result['tok_count']:<7.3f} " \
+                   + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1):<7.3f} " \
                    + f"weight={predict_result['weight']:<7.3f} " \
                    + f"{output}"
             print(line, file=self.output_file)
@@ -112,8 +112,8 @@ class CrossEntropyEvaluation(Evaluation):
             self.score += predict_result["weight"] *predict_result["cross_entropy"]
             self.count += predict_result["weight"]
         elif self.reduction == "micro":
-            self.score +=  predict_result["weight"] * predict_result["tok_count"]  * predict_result["cross_entropy"]
-            self.count += predict_result["weight"] * predict_result["tok_count"]
+            self.score +=  predict_result["weight"] * (predict_result["tok_count"] + 1) * predict_result["cross_entropy"]
+            self.count += predict_result["weight"] * (predict_result["tok_count"] + 1)
         else:
             raise NotImplementedError
 
