@@ -232,3 +232,17 @@ def gradient_background(f):
     colors = [196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46]
     color = colors[i]
     return color
+
+def precision(ref, cand):
+    if len(cand) == 0:
+        return 0
+    else:
+        ref = set(ref)
+        return sum([t in ref for t in cand]) / len(cand)
+
+def recall(ref, cand):
+    if len(cand) == 0:
+        return 0
+    else:
+        cand = set(cand)
+        return sum([t in cand for t in ref]) / len(ref)

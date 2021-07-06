@@ -96,7 +96,7 @@ class ConstrainedDecoding(Prediction):
                 else:
                     log_weights.append(0.0)
             weights = torch.softmax(torch.tensor(log_weights), dim=-1).tolist()
-            for weight, (score, ids, meta) in zip(reversed(weights), reversed(cell)):
+            for weight, (score, ids, meta) in sorted(list(zip(reversed(weights), reversed(cell))), key=lambda x: (x[0], x[1][0]), reverse=True):
                 yield {
                     "input_ids": inputs["input_ids"][0].tolist(),
                     "attention_mask": inputs["attention_mask"][0].tolist(),
@@ -130,7 +130,12 @@ class ConstrainedDecoding(Prediction):
                 print(f"------------------------", file=self.output_file)
 
             # prepare outputs
-            output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
+            # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
+            # if you want highlight on tokens that match the reference
+            output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer,
+                                   underline_filter=language_agnostic_token_matcher()(
+                                       decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer,
+                                                     self.l2_tokenizer, join=False, color=False)))
             ref_toks = untag(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
                                 color=False)[1:-1])
             out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
@@ -138,8 +143,6 @@ class ConstrainedDecoding(Prediction):
             pcs = precision(ref_toks, out_toks)
             rcl = recall(ref_toks, out_toks)
 
-            # if you want highlight on tokens that match the reference
-            # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, highlight_filter=language_agnostic_token_matcher()(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)))
             line = f"score={predict_result['score']:<7.2f} " \
                    + f"logprob={predict_result['log_prob']:<7.2f} " \
                    + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1) :<7.2f} " \
