@@ -5,7 +5,7 @@ from transformers.utils import logging
 
 from cslm.evaluation.prediction import Prediction
 from cslm.inference.beam_search import beam_search
-from cslm.utils import decode_output, decode_input, untag, background, gradient_background
+from cslm.utils import decode_output, decode_input, untag, background, gradient_background, recall, precision
 
 logger = logging.get_logger(__name__)
 
@@ -135,8 +135,8 @@ class ConstrainedDecoding(Prediction):
                                 color=False)[1:-1])
             out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
                                    color=False)[1:-1])
-            pcs = sentence_bleu([ref_toks], out_toks, weights=(1.0, 0.0, 0.0, 0.0))
-            rcl = sentence_bleu([out_toks], ref_toks, weights=(1.0, 0.0, 0.0, 0.0))
+            pcs = precision(ref_toks, out_toks)
+            rcl = recall(ref_toks, out_toks)
 
             # if you want highlight on tokens that match the reference
             # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, highlight_filter=language_agnostic_token_matcher()(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)))
@@ -144,7 +144,7 @@ class ConstrainedDecoding(Prediction):
                    + f"logprob={predict_result['log_prob']:<7.2f} " \
                    + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1) :<7.2f} " \
                    + background(f"pcs={pcs :<7.2f}", gradient_background(pcs)) + " " \
-                   + background(f"rcl={pcs :<7.2f}", gradient_background(rcl)) + " "\
+                   + background(f"rcl={rcl :<7.2f}", gradient_background(rcl)) + " "\
                    + f"l2%={(predict_result['l2_count'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
                    + (f"cs%={(predict_result['switch_count'] / predict_result['fence_count']) if predict_result['fence_count'] > 0 else 0:<7.2f} " if  "fence_count" in predict_result else "") \
                    + f"weight={predict_result['weight']:<7.2f} " \

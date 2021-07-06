@@ -2,7 +2,7 @@ import orjson
 from nltk.translate.bleu_score import sentence_bleu
 
 from cslm.evaluation.evaluation import Evaluation
-from cslm.utils import decode_input, decode_output, untag
+from cslm.utils import decode_input, decode_output, untag, precision, recall
 
 
 class UnigramLanguageAgnosticPrecision(Evaluation):
@@ -30,7 +30,7 @@ class UnigramLanguageAgnosticPrecision(Evaluation):
         output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
         ref = untag(ref[1:-1])
         output = untag(output[1:-1])
-        score = sentence_bleu([ref], output, weights=(1, 0, 0, 0))
+        score = precision(ref, output)
         if self.reduction == "macro":
             self.score += predict_result["weight"] * score
             self.count += predict_result["weight"]
@@ -78,7 +78,7 @@ class UnigramLanguageAgnosticRecall(Evaluation):
         output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
         ref = untag(ref[1:-1])
         output = untag(output[1:-1])
-        score = sentence_bleu([output], ref, weights=(1, 0, 0, 0))
+        score = recall(ref, output)
         if self.reduction == "macro":
             self.score += predict_result["weight"] * score
             self.count += predict_result["weight"]
