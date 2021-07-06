@@ -13,6 +13,11 @@ def constrained_decoding_bin_selector(*args):
     logger.info(f"Filtering cells of constrained_decoding {{{', '.join(map(str, args))}}}")
     return lambda prediction_result: prediction_result["cell_id"] in args
 
+def constrained_decoding_length_selector(*args):
+    args = set(args)
+    logger.info(f"Filtering lengths of constrained_decoding {{{', '.join(map(str, args))}}}")
+    return lambda prediction_result: prediction_result["decoder_input_length"] - 2 in args
+
 class ConstrainedDecoding(Prediction):
 
     def __init__(self,
@@ -94,7 +99,7 @@ class ConstrainedDecoding(Prediction):
                     "score": score,
                     "cell_id": b,
                     "weight": weight,
-                    "cross_entropy": -meta["log_prob"] / meta["tok_count"],
+                    "cross_entropy": -meta["log_prob"] / meta["tok_count"] if meta["tok_count"] > 0 else 0,
                 } | meta
 
     def _log_step(self, step, predict_result):
@@ -114,8 +119,8 @@ class ConstrainedDecoding(Prediction):
             output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
             line = f"score={predict_result['score']:<7.2f} " \
                    + f"logprob={predict_result['log_prob']:<7.2f} " \
-                   + f"ce={-predict_result['log_prob'] / predict_result['tok_count']:<7.2f} " \
-                   + f"l2%={predict_result['l2_count'] / predict_result['tok_count']:<7.2f} " \
+                   + f"ce={(-predict_result['log_prob'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
+                   + f"l2%={(predict_result['l2_count'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
                    + f"weight={predict_result['weight']:<7.2f} " \
                    + f"{output}"
             print(line, file=self.output_file)

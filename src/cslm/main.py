@@ -13,6 +13,7 @@ from transformers.utils import logging
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
 from cslm.evaluation.evaluation import EvaluationList
+from cslm.evaluation.setup import setup_prediction, setup_evaluation
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticPrecision, UnigramLanguageAgnosticRecall
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
@@ -26,7 +27,6 @@ from cslm.training.utils import get_linear_schedule_with_warmup
 from cslm.utils import set_seed, seq_numel, decode_input, decode_output
 from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory
 from grid_utils import acquire_all_available_gpu
-from cslm.evaluation.constrained_decoding import constrained_decoding_bin_selector
 
 import cslm.inference.search_schemes.l1_mixed_l2 as l1_mixed_l2
 
@@ -44,6 +44,8 @@ def main():
         exp_args, = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         exp_args, = parser.parse_args_into_dataclasses()
+
+    logger.info(exp_args)
     # * * * * * * * * * * * * * * * * * * * * CMD SETUP END * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     #
     #
@@ -232,130 +234,30 @@ def main():
     #
     #
     # * * * * * * * * * * * * * * * * * * * * INFERENCE START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
-    def setup_prediction():
-        if exp_args.decode_mode is None:
-            return None
-        # setup output file
-        if exp_args.decode_output is not None \
-                and exp_args.decode_output != "terminal" \
-                and os.path.exists(exp_args.decode_output) \
-                and not exp_args.decode_overwrite_output:
-            raise ValueError(f"{exp_args.decode_output} exists, please set decode_overwrite_output to true if you wish to overwrite.")
-        if exp_args.decode_output is None:
-            output_file = None
-        elif exp_args.decode_output == "terminal" and exp_args.decode_format == "data":
-            output_file = sys.stdout.buffer
-        elif exp_args.decode_output == "terminal" and exp_args.decode_format == "human":
-            output_file = sys.stdout
-        elif exp_args.decode_output != "terminal" and exp_args.decode_format == "data":
-            output_file = open(exp_args.decode_output, "wb")
-        elif exp_args.decode_output != "terminal" and exp_args.decode_format == "human":
-            output_file = open(exp_args.decode_output, "wt")
-        else:
-            raise ValueError(f"Unknown output / format: {exp_args.decode_output}/{exp_args.decode_format}")
+    prediction = setup_prediction(exp_args=exp_args,
+                     model=model,
+                     datasets=datasets,
+                     data_collator=data_collator,
+                     l0_tokenizer=l0_tokenizer,
+                     l1_tokenizer=l1_tokenizer,
+                     l2_tokenizer=l2_tokenizer,
+                     vocab_size=vocab_size,
+                     bos_id=bos_id,
+                     eos_ids=eos_ids,
+                     pad_id=pad_id)
 
-        if exp_args.decode_load_cache is not None:
-            cache_file = open(exp_args.decode_load_cache, "rb")
-        else:
-            cache_file = None
-
-        # setup prediction
-        if exp_args.decode_mode.startswith("l1_mixed_l2"):
-            fn_initial_state = l1_mixed_l2.initial_state_factory()
-            fn_update_state = l1_mixed_l2.update_state_factory(eos_ids)
-            fn_assign_bin = l1_mixed_l2.assign_bin_factory()
-            num_bins = l1_mixed_l2.NUM_BINS
-            do_sample = exp_args.decode_do_sample
-            prediction = ConstrainedDecoding(model=model,
-                                             args=exp_args,
-                                             eval_dataset=datasets["validation"],
-                                             data_collator=data_collator,
-                                             bos_id=bos_id,
-                                             eos_ids=eos_ids,
-                                             pad_id=pad_id,
-                                             vocab_size=vocab_size,
-                                             fn_initial_state=fn_initial_state,
-                                             fn_update_state=fn_update_state,
-                                             fn_assign_bin=fn_assign_bin,
-                                             num_bins=num_bins,
-                                             do_sample=do_sample,
-                                             l0_tokenizer=l0_tokenizer,
-                                             l1_tokenizer=l1_tokenizer,
-                                             l2_tokenizer=l2_tokenizer,
-                                             output_file=output_file,
-                                             cache_file=cache_file)
-        elif exp_args.decode_mode == "cross_entropy":
-            prediction = CrossEntropyPrediction(
-                model=model,
-                args=exp_args,
-                eval_dataset=datasets["validation"],
-                data_collator=data_collator,
-                output_file=output_file,
-                bos_id=bos_id,
-                eos_ids=eos_ids,
-                pad_id=pad_id,
-                vocab_size=vocab_size,
-                l0_tokenizer=l0_tokenizer,
-                l1_tokenizer=l1_tokenizer,
-                l2_tokenizer=l2_tokenizer,
-                cache_file=cache_file
-            )
-        else:
-            raise NotImplementedError
-        return prediction
-
-    def setup_evaluation(prediction):
-        if exp_args.eval_mode is None:
-            return None
-        if exp_args.eval_output is None:
-            output_file = None
-        elif exp_args.eval_output == "terminal" and exp_args.eval_format == "data":
-            output_file = sys.stdout.buffer
-        elif exp_args.eval_output == "terminal" and exp_args.eval_format == "human":
-            output_file = sys.stdout
-        elif exp_args.eval_output != "terminal" and exp_args.eval_format == "data":
-            output_file = open(exp_args.eval_output, "wb")
-        elif exp_args.eval_output != "terminal" and exp_args.eval_format == "human":
-            output_file = open(exp_args.eval_output, "wt")
-        else:
-            raise ValueError(f"Unknown output / format: {exp_args.eval_output}/{exp_args.eval_format}")
-        filters = [eval(filter) for filter in exp_args.eval_filter]
-        if exp_args.eval_mode == "cross_entropy":
-            evaluation = CrossEntropyEvaluation(prediction=prediction,
-                                                args=exp_args,
-                                                output_file=output_file,
-                                                reduction=exp_args.eval_reduction,
-                                                filters=filters)
-        elif exp_args.eval_mode == "unigram_precision":
-            evaluation = UnigramLanguageAgnosticPrecision(prediction=prediction,
-                                                          args=exp_args,
-                                                          output_file=output_file,
-                                                          reduction=exp_args.eval_reduction,
-                                                          filters=filters,
-                                                          l0_tokenizer=l0_tokenizer,
-                                                          l1_tokenizer=l1_tokenizer,
-                                                          l2_tokenizer=l2_tokenizer)
-        elif exp_args.eval_mode == "unigram_recall":
-            evaluation = UnigramLanguageAgnosticRecall(prediction=prediction,
-                                                          args=exp_args,
-                                                          output_file=output_file,
-                                                          reduction=exp_args.eval_reduction,
-                                                          filters=filters,
-                                                          l0_tokenizer=l0_tokenizer,
-                                                          l1_tokenizer=l1_tokenizer,
-                                                          l2_tokenizer=l2_tokenizer)
-        else:
-            raise NotImplementedError
-        return evaluation
-
-
-    prediction = setup_prediction()
-    evaluation = setup_evaluation(prediction)
+    evaluation = setup_evaluation(prediction=prediction,
+                     exp_args=exp_args,
+                     l0_tokenizer=l0_tokenizer,
+                     l1_tokenizer=l1_tokenizer,
+                     l2_tokenizer=l2_tokenizer)
     if exp_args.decode_mode is not None and exp_args.eval_mode is None:
         # decode only mode
+        logger.info("Running prediction only mode.")
         prediction.predict_and_log()
     elif exp_args.decode_mode is not None and exp_args.eval_mode is not None:
         # decode and eval mode
+        logger.info("Running prediction and evaluation.")
         evaluation.evaluate_and_log()
 
 if __name__ == "__main__":

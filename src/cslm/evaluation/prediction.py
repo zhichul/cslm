@@ -58,10 +58,14 @@ class Prediction:
             return self._log_step(step, predict_result)
         return None
 
-    def predict_and_log(self):
+    def lazy_predict_and_log(self):
         for step, predict_result in enumerate(self.predict()):
             self.log_step(step, predict_result)
             yield predict_result
+
+    def predict_and_log(self):
+        for step, predict_result in enumerate(self.predict()):
+            self.log_step(step, predict_result)
 
     def predict(self):
         if not self.cache_file:

@@ -39,7 +39,7 @@ class Evaluation:
     def evaluate(self):
         self.score = 0
         self.count = 0
-        for predict_result in self.prediction.predict_and_log():
+        for predict_result in self.prediction.lazy_predict_and_log():
             if all(predictate(predict_result) for predictate in self.filters):
                 self.eval_step(predict_result)
         logger.info("\n\nEvaluation completed.\n\n")
@@ -89,7 +89,7 @@ class EvaluationList(Evaluation):
         for name, ev in self.evaluations:
             ev.score = 0
             ev.count = 0
-        for predict_result in self.prediction.predict_and_log():
+        for predict_result in self.prediction.lazy_predict_and_log():
             if all(predictate(predict_result) for predictate in self.filters):
                 self.eval_step(predict_result)
         logger.info("\n\nEvaluation completed.\n\n")
