@@ -205,10 +205,10 @@ def setup_evaluation(prediction=None,
     elif exp_args.eval_output == "terminal" and exp_args.eval_format == "human":
         output_file = sys.stdout
     elif exp_args.eval_output != "terminal" and exp_args.eval_format == "data":
-        os.makedirs(os.path.dirname(exp_args.decode_output), exist_ok=True)
+        os.makedirs(os.path.dirname(exp_args.eval_output), exist_ok=True)
         output_file = open(exp_args.eval_output, "wb")
     elif exp_args.eval_output != "terminal" and exp_args.eval_format == "human":
-        os.makedirs(os.path.dirname(exp_args.decode_output), exist_ok=True)
+        os.makedirs(os.path.dirname(exp_args.eval_output), exist_ok=True)
         output_file = open(exp_args.eval_output, "wt")
     else:
         raise ValueError(f"Unknown output / format: {exp_args.eval_output}/{exp_args.eval_format}")
