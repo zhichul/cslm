@@ -22,6 +22,7 @@ from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
 from cslm.modeling.softmix import SoftmixOutputLayer
 from cslm.modeling.transformer import TransformerLMHead
+from cslm.training.interventional_mle_trainer import InterventionalMLETrainer
 from cslm.training.mle_trainer import MLETrainer
 from cslm.training.utils import get_linear_schedule_with_warmup
 from cslm.utils import set_seed, seq_numel, decode_input, decode_output
@@ -60,6 +61,8 @@ def main():
     eos_ids = [l1_tokenizer.token_to_id("[EOS]")]
     pad_id = l1_tokenizer.token_to_id("[PAD]")
     vocab_size = len(l1_tokenizer.get_vocab()) + len(l2_tokenizer.get_vocab())
+    l1_size = len(l1_tokenizer.get_vocab())
+    l2_size = len(l2_tokenizer.get_vocab())
     # * * * * * * * * * * * * * * * * * * * * TOKENIZER SETUP END * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     #
     #
@@ -223,6 +226,23 @@ def main():
             train_dataset_lengths=train_dataset_lengths,
             evaluations=evaluations
         )
+    elif exp_args.train_mode == "interventional_mle":
+        trainer = InterventionalMLETrainer(
+            model=model,
+            args=exp_args,
+            train_dataset=datasets["train"],
+            data_collator=data_collator,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            train_dataset_weights=exp_args.train_weight,
+            train_dataset_lengths=train_dataset_lengths,
+            evaluations=evaluations,
+            vocab_size=vocab_size,
+            l1_range=slice(4, l1_size, 1),
+            l2_range=slice(l1_size + 4, vocab_size, 1)
+        )
+    else:
+        raise NotImplementedError
     # * * * * * * * * * * * * * * * * * * * * TRAINING SETUP END * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
     #
     #
