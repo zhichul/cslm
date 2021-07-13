@@ -193,5 +193,5 @@ class ExperimentArguments:
     )
     # * * * * * * * * * * * * * * * * * * * * Custom Evaluation  * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     eval_filter: Optional[List[str]] = field(
-        default=None, metadata={"help": "filter prediction outputs"}
+        default_factory=list, metadata={"help": "filter prediction outputs"}
     )

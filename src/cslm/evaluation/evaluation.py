@@ -18,8 +18,7 @@ class Evaluation:
             raise ValueError(f"Reduction must be one of {{'micro', 'macro', 'none'}}, got {reduction}")
         self.reduction = reduction
         self.filters = filters
-        self.score = 0
-        self.count = 0
+        self.reset()
 
     def eval_step(self, predict_result):
         raise NotImplementedError
@@ -37,13 +36,16 @@ class Evaluation:
             self.log(summary)
 
     def evaluate(self):
-        self.score = 0
-        self.count = 0
+        self.reset()
         for predict_result in self.prediction.lazy_predict_and_log():
             if all(predictate(predict_result) for predictate in self.filters):
                 self.eval_step(predict_result)
         logger.info("\n\nEvaluation completed.\n\n")
         return self.summary
+
+    def reset(self):
+        self.score = 0
+        self.count = 0
 
 
 class EvaluationList(Evaluation):
@@ -85,10 +87,12 @@ class EvaluationList(Evaluation):
         else:
             raise NotImplementedError
 
-    def evaluate(self):
+    def reset(self):
         for name, ev in self.evaluations:
-            ev.score = 0
-            ev.count = 0
+            ev.reset()
+
+    def evaluate(self):
+        self.reset()
         for predict_result in self.prediction.lazy_predict_and_log():
             if all(predictate(predict_result) for predictate in self.filters):
                 self.eval_step(predict_result)

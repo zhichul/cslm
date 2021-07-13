@@ -3,6 +3,7 @@ import sys
 
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyPrediction, CrossEntropyEvaluation
+from cslm.evaluation.next_word_pos import SyntheticNextWordPOS
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
 
 from cslm.inference.search_schemes import l1_mixed_l2, l1_3_l2, l1_5_l2, switch_5_percentage, switch_5_count
@@ -230,6 +231,15 @@ def setup_evaluation(prediction=None,
                                                       l2_tokenizer=l2_tokenizer)
     elif exp_args.eval_mode == "unigram_recall":
         evaluation = UnigramLanguageAgnosticRecall(prediction=prediction,
+                                                      args=exp_args,
+                                                      output_file=output_file,
+                                                      reduction=exp_args.eval_reduction,
+                                                      filters=filters,
+                                                      l0_tokenizer=l0_tokenizer,
+                                                      l1_tokenizer=l1_tokenizer,
+                                                      l2_tokenizer=l2_tokenizer)
+    elif exp_args.eval_mode == "next_word_pos":
+        evaluation = SyntheticNextWordPOS(prediction=prediction,
                                                       args=exp_args,
                                                       output_file=output_file,
                                                       reduction=exp_args.eval_reduction,

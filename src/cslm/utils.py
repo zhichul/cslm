@@ -1,3 +1,5 @@
+import re
+
 from scipy.stats import gumbel_r
 from transformers.utils import logging
 import random
@@ -223,6 +225,19 @@ def decode_input(ids, l0_tokenizer, join=True, color=True):
 
 def untag(tokens):
     return [token[:-2] for token in tokens]
+
+def syn_pos(tokens):
+    results = []
+    for token in tokens:
+        if token in {"[BOS]", "[EOS]", "[PAD]", "[UNK]"}:
+            tok = token
+        else:
+            lang_tag = token[-2:]
+            token = token[:-2]
+            match = re.match("^([a-zA-Z]+)\d+$", token)
+            tok = match.group(1) + lang_tag
+        results.append(tok)
+    return results
 
 def background(tok, color):
     return f"\033[48;5;{color}m{tok}\033[0m"
