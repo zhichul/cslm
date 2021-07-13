@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 import orjson
 import torch
+from cslm.inference.search_schemes import switch_5_count
 from datasets import DatasetDict
 from torch import nn
 from torch.utils.data import ConcatDataset
@@ -22,7 +23,6 @@ from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
 from cslm.modeling.softmix import SoftmixOutputLayer
 from cslm.modeling.transformer import TransformerLMHead
-from cslm.training.interventional_mle_trainer import InterventionalMLETrainer
 from cslm.training.mle_trainer import MLETrainer
 from cslm.training.utils import get_linear_schedule_with_warmup
 from cslm.utils import set_seed, seq_numel, decode_input, decode_output
@@ -178,6 +178,16 @@ def main():
             "prediction": "cross_entropy",
             "evaluation": "cross_entropy",
             "name": "cross_entropy"
+        },
+        "interventional_cross_entropy": {
+            "prediction": "interventional_cross_entropy",
+            "evaluation": "cross_entropy",
+            "name": "interventional_cross_entropy"
+        },
+        "unigram_precision": {
+            "prediction": "constrained_decoding",
+            "evaluation": "unigram_precision",
+            "name": "unigram_precision"
         }
     }
     validation_predictions = {
@@ -196,13 +206,57 @@ def main():
                 l2_tokenizer=l2_tokenizer,
                 cache_file=None
             ),
+        "interventional_cross_entropy": CrossEntropyPrediction(
+            model=model,
+            args=exp_args,
+            eval_dataset=datasets["validation"],
+            data_collator=data_collator,
+            output_file=None,
+            bos_id=bos_id,
+            eos_ids=eos_ids,
+            pad_id=pad_id,
+            vocab_size=vocab_size,
+            l0_tokenizer=l0_tokenizer,
+            l1_tokenizer=l1_tokenizer,
+            l2_tokenizer=l2_tokenizer,
+            cache_file=None,
+            force_langauge=True,
+            l1_range=slice(4, l1_size, 1),
+            l2_range=slice(l1_size + 4, vocab_size, 1)
+        ),
+        "constrained_decoding":  ConstrainedDecoding(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         bos_id=bos_id,
+                                         eos_ids=eos_ids,
+                                         pad_id=pad_id,
+                                         vocab_size=vocab_size,
+                                         fn_initial_state=switch_5_count.initial_state_factory(),
+                                         fn_update_state=switch_5_count.update_state_factory(eos_ids),
+                                         fn_assign_bin=switch_5_count.assign_bin_factory(),
+                                         num_bins=switch_5_count.NUM_BINS,
+                                         do_sample=True,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=sys.stdout,
+                                         cache_file=None)
     }
     validation_evaluations = {
         "cross_entropy": CrossEntropyEvaluation(prediction=None,
                                                 args=exp_args,
                                                 output_file=None,
                                                 reduction="micro",
-                                                filters=list())
+                                                filters=list()),
+        "unigram_precision": UnigramLanguageAgnosticPrecision(prediction=None,
+                                                args=exp_args,
+                                                output_file=None,
+                                                reduction="micro",
+                                                filters=list(),
+                                                l0_tokenizer=l0_tokenizer,
+                                                l1_tokenizer=l1_tokenizer,
+                                                l2_tokenizer=l2_tokenizer)
     }
     evaluations = OrderedDict()
     for metric in exp_args.metrics:
@@ -227,7 +281,7 @@ def main():
             evaluations=evaluations
         )
     elif exp_args.train_mode == "interventional_mle":
-        trainer = InterventionalMLETrainer(
+        trainer = MLETrainer(
             model=model,
             args=exp_args,
             train_dataset=datasets["train"],
@@ -237,6 +291,7 @@ def main():
             train_dataset_weights=exp_args.train_weight,
             train_dataset_lengths=train_dataset_lengths,
             evaluations=evaluations,
+            force_langauge=True,
             vocab_size=vocab_size,
             l1_range=slice(4, l1_size, 1),
             l2_range=slice(l1_size + 4, vocab_size, 1)

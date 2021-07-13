@@ -1,6 +1,7 @@
 import math
 
 import orjson
+import torch
 
 from cslm.evaluation.evaluation import Evaluation
 
@@ -24,7 +25,11 @@ class CrossEntropyPrediction(Prediction):
                 vocab_size=None,
                 l0_tokenizer=None,
                 l1_tokenizer=None,
-                l2_tokenizer=None):
+                l2_tokenizer=None,
+                force_langauge=False,
+                l1_range=None,
+                l2_range=False
+                ):
         super().__init__(model=model,
                         args=args,
                         eval_dataset=eval_dataset,
@@ -38,6 +43,15 @@ class CrossEntropyPrediction(Prediction):
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
+
+        # setup for forced language evaluation
+        self.force_language = force_langauge
+        self.l1_range = l1_range
+        self.l2_range = l2_range
+        self.vocab_size = vocab_size
+        self.vocab_mask = torch.full((1, self.vocab_size), -1).to(self.args.device)
+        self.vocab_mask[0, l1_range] = 0
+        self.vocab_mask[0, l2_range] = 1
 
     def _predict_step(self, model, inputs):
         decoder_last_layer = model.base_model(
@@ -56,6 +70,14 @@ class CrossEntropyPrediction(Prediction):
 
         # compute loss
         batch_size = inputs["decoder_attention_mask"].size(0)
+
+        if self.force_language:
+            logit_mask = (1 - inputs['decoder_language_labels'][:, None]) == self.vocab_mask.expand(batch_size,
+                                                                                                    self.vocab_mask.size(
+                                                                                                        -1))
+            logit_mask = logit_mask[:, None, :].expand(logits.size())
+            logits.masked_fill_(logit_mask, -1e9)
+
         sent_log_prob = compute_log_probs_with_mask(logits, inputs["decoder_input_ids"],
                                                     inputs["decoder_attention_mask"])
         total_tokens = inputs["decoder_attention_mask"].to(dtype=logits.dtype).sum() - batch_size
