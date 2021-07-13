@@ -45,7 +45,7 @@ class MLETrainer(Trainer):
         if self.force_language:
             logit_mask = (1-inputs['decoder_language_labels'][:, None]) == self.vocab_mask.expand(batch_size, self.vocab_mask.size(-1))
             logit_mask = logit_mask[:,None,:].expand(logits.size())
-            logits.masked_fill_(logit_mask,-1e9)
+            logits = logits.masked_fill(logit_mask,-1e9)
 
         sent_log_prob = compute_log_probs_with_mask(logits, inputs["decoder_input_ids"], inputs["decoder_attention_mask"])
         total_tokens = inputs["decoder_attention_mask"].to(dtype=logits.dtype).sum() - batch_size
