@@ -25,6 +25,8 @@ class SyntheticNextWordPOS(Evaluation):
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
+        self.l1_vocab_size = len(l1_tokenizer.get_vocab())
+        self.l2_vocab_size = len(l2_tokenizer.get_vocab())
         self.reset()
 
     def reset(self):
@@ -32,7 +34,7 @@ class SyntheticNextWordPOS(Evaluation):
         self.count = defaultdict(float)
 
     def eval_step(self, predict_result):
-        output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)[1:]
+        output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)[1:]
         output = syn_pos(output)
         for (prev, next) in zip(output, output[1:]):
             if self.reduction == "micro":

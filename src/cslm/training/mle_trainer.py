@@ -16,12 +16,13 @@ class MLETrainer(Trainer):
 
         # setup for forced langauge training
         self.force_language = force_langauge
-        self.l1_range = l1_range
-        self.l2_range = l2_range
-        self.vocab_size = vocab_size
-        self.vocab_mask = torch.full((1, self.vocab_size), -1).to(self.args.device)
-        self.vocab_mask[0, l1_range] = 0
-        self.vocab_mask[0, l2_range] = 1
+        if self.force_language:
+            self.l1_range = l1_range
+            self.l2_range = l2_range
+            self.vocab_size = vocab_size
+            self.vocab_mask = torch.full((1, self.vocab_size), -1).to(self.args.device)
+            self.vocab_mask[0, l1_range] = 0
+            self.vocab_mask[0, l2_range] = 1
 
     def training_step(self, model, inputs):
         decoder_last_layer = model.base_model(

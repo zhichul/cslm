@@ -1,3 +1,4 @@
+import collections
 import re
 
 from scipy.stats import gumbel_r
@@ -176,19 +177,16 @@ def invert(s):
 def highlight(s):
     return f"\033[48;5;10m{s}\033[0m"
 
-def decode_output(ids, l1_tokenizer, l2_tokenizer, join=True, color=True, underline_filter=None, invert_filter=None, highlight_filter=None):
+def decode_output(ids, l1_tokenizer, l2_tokenizer, l1_vocab_size, l2_vocab_size, join=True, color=True, underline_filter=None, invert_filter=None, highlight_filter=None):
     tokens = []
     bos_token_id = l1_tokenizer.token_to_id("[BOS]")
     eos_token_id = l1_tokenizer.token_to_id("[EOS]")
-    l1_vocab_size = len(l1_tokenizer.get_vocab())
     for id in ids:
-        ofs = []
-        ofe = []
         if id == bos_token_id or id == eos_token_id:
             raw_token = l1_tokenizer.id_to_token(id)
             token = bold(white(raw_token)) if color else raw_token
         elif id >= l1_vocab_size:
-            raw_token = l2_tokenizer.id_to_token(id - len(l1_tokenizer.get_vocab()))
+            raw_token = l2_tokenizer.id_to_token(id - l1_vocab_size)
             token = red(raw_token) if color else raw_token
         else:
             raw_token = l1_tokenizer.id_to_token(id)
@@ -261,3 +259,16 @@ def recall(ref, cand):
     else:
         cand = set(cand)
         return sum([t in cand for t in ref]) / len(ref)
+
+def flatten_dict(d, parent_key='', sep=','):
+    """
+    https://stackoverflow.com/questions/6027558/flatten-nested-dictionaries-compressing-keys
+    """
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, collections.MutableMapping):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)

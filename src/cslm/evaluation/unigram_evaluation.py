@@ -24,10 +24,12 @@ class UnigramLanguageAgnosticPrecision(Evaluation):
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
+        self.l1_vocab_size = len(l1_tokenizer.get_vocab())
+        self.l2_vocab_size = len(l2_tokenizer.get_vocab())
 
     def eval_step(self, predict_result):
-        ref = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
-        output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
+        ref = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)
+        output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)
         ref = untag(ref[1:-1])
         output = untag(output[1:-1])
         score = precision(ref, output)
@@ -72,10 +74,12 @@ class UnigramLanguageAgnosticRecall(Evaluation):
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
+        self.l1_vocab_size = len(l1_tokenizer.get_vocab())
+        self.l2_vocab_size = len(l2_tokenizer.get_vocab())
 
     def eval_step(self, predict_result):
-        ref = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
-        output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False, color=False)
+        ref = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)
+        output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)
         ref = untag(ref[1:-1])
         output = untag(output[1:-1])
         score = recall(ref, output)

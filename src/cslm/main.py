@@ -14,7 +14,7 @@ from transformers.utils import logging
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
 from cslm.evaluation.evaluation import EvaluationList
-from cslm.evaluation.setup import setup_prediction, setup_evaluation
+from cslm.evaluation.setup import setup_prediction, setup_evaluation, setup_metrics, setup_breakdown_evaluation
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticPrecision, UnigramLanguageAgnosticRecall
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
@@ -94,6 +94,8 @@ def main():
             logger.info(f"Loaded {train_file} with {len(train_sub_dataset)} examples, and going to sample with weight {exp_args.train_weight[train_i]}.")
         train_dataset = ConcatDataset(train_datasets)
         datasets = DatasetDict({"train":train_dataset, "validation": valid_dataset})
+    else:
+        raise NotImplementedError
 
     # collator
     data_collator = encoder_decoder_data_collator_factory(ignore_offset=l2_tokenizer.token_to_id("[EOS]"))
@@ -115,6 +117,8 @@ def main():
         if softmix_config is not None:
             softmix_config.vocab_size = target_vocab_size
         base_model = EncoderDecoder(encoder_decoder_config)
+    else:
+        raise NotImplementedError
 
     logger.info(f"Encoder Size: {seq_numel(tuple(base_model.encoder.parameters()))}")
     logger.info(f"Decoder Size: {seq_numel(tuple(base_model.decoder.parameters()))}")
@@ -173,100 +177,19 @@ def main():
         logger.info(f"loaded from {exp_args.model_name_or_path}")
 
     # setup validation evaluation
-    validation_metrics = {
-        "cross_entropy": {
-            "prediction": "cross_entropy",
-            "evaluation": "cross_entropy",
-            "name": "cross_entropy"
-        },
-        "interventional_cross_entropy": {
-            "prediction": "interventional_cross_entropy",
-            "evaluation": "cross_entropy",
-            "name": "interventional_cross_entropy"
-        },
-        "unigram_precision": {
-            "prediction": "constrained_decoding",
-            "evaluation": "unigram_precision",
-            "name": "unigram_precision"
-        }
-    }
-    validation_predictions = {
-        "cross_entropy": CrossEntropyPrediction(
-                model=model,
-                args=exp_args,
-                eval_dataset=datasets["validation"],
-                data_collator=data_collator,
-                output_file=None,
-                bos_id=bos_id,
-                eos_ids=eos_ids,
-                pad_id=pad_id,
-                vocab_size=vocab_size,
-                l0_tokenizer=l0_tokenizer,
-                l1_tokenizer=l1_tokenizer,
-                l2_tokenizer=l2_tokenizer,
-                cache_file=None
-            ),
-        "interventional_cross_entropy": CrossEntropyPrediction(
-            model=model,
-            args=exp_args,
-            eval_dataset=datasets["validation"],
-            data_collator=data_collator,
-            output_file=None,
-            bos_id=bos_id,
-            eos_ids=eos_ids,
-            pad_id=pad_id,
-            vocab_size=vocab_size,
-            l0_tokenizer=l0_tokenizer,
-            l1_tokenizer=l1_tokenizer,
-            l2_tokenizer=l2_tokenizer,
-            cache_file=None,
-            force_langauge=True,
-            l1_range=slice(4, l1_size, 1),
-            l2_range=slice(l1_size + 4, vocab_size, 1)
-        ),
-        "constrained_decoding":  ConstrainedDecoding(model=model,
-                                         args=exp_args,
-                                         eval_dataset=datasets["validation"],
-                                         data_collator=data_collator,
-                                         bos_id=bos_id,
-                                         eos_ids=eos_ids,
-                                         pad_id=pad_id,
-                                         vocab_size=vocab_size,
-                                         fn_initial_state=switch_5_count.initial_state_factory(),
-                                         fn_update_state=switch_5_count.update_state_factory(eos_ids),
-                                         fn_assign_bin=switch_5_count.assign_bin_factory(),
-                                         num_bins=switch_5_count.NUM_BINS,
-                                         do_sample=True,
-                                         l0_tokenizer=l0_tokenizer,
-                                         l1_tokenizer=l1_tokenizer,
-                                         l2_tokenizer=l2_tokenizer,
-                                         output_file=sys.stdout,
-                                         cache_file=None)
-    }
-    validation_evaluations = {
-        "cross_entropy": CrossEntropyEvaluation(prediction=None,
-                                                args=exp_args,
-                                                output_file=None,
-                                                reduction="micro",
-                                                filters=list()),
-        "unigram_precision": UnigramLanguageAgnosticPrecision(prediction=None,
-                                                args=exp_args,
-                                                output_file=None,
-                                                reduction="micro",
-                                                filters=list(),
-                                                l0_tokenizer=l0_tokenizer,
-                                                l1_tokenizer=l1_tokenizer,
-                                                l2_tokenizer=l2_tokenizer)
-    }
-    evaluations = OrderedDict()
-    for metric in exp_args.metrics:
-        metric_meta = validation_metrics[metric]
-        pred_key, eval_key, name = metric_meta["prediction"], metric_meta["evaluation"], metric_meta["name"]
-        if pred_key not in evaluations:
-            evaluations[pred_key] = EvaluationList(prediction=validation_predictions[pred_key],
-                                                   args=exp_args,
-                                                   output_file=None)
-        evaluations[pred_key].add_evaluation(name, validation_evaluations[eval_key])
+    evaluations = setup_metrics(exp_args=exp_args,
+                                  model=model,
+                                  datasets=datasets,
+                                  data_collator=data_collator,
+                                  bos_id=bos_id,
+                                  eos_ids=eos_ids,
+                                  pad_id=pad_id,
+                                  vocab_size=vocab_size,
+                                  l0_tokenizer=l0_tokenizer,
+                                  l1_tokenizer=l1_tokenizer,
+                                  l2_tokenizer=l2_tokenizer,
+                                  l1_size=l1_size,
+                                  l2_size=l2_size)
 
     if exp_args.train_mode == "mle":
         trainer = MLETrainer(

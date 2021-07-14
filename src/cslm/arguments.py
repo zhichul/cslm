@@ -166,6 +166,9 @@ class ExperimentArguments:
     decode_num_sequences: Optional[int] = field(
         default=5, metadata={"help": "Number of beams to return from beam search."}
     )
+    decode_display_sequences: Optional[int] = field(
+        default=5, metadata={"help": "Number of beams to return from beam search."}
+    )
     decode_do_sample: Optional[bool] = field(
         default=False, metadata={"help": "Whether to do stochastic decoding."}
     )
@@ -194,4 +197,7 @@ class ExperimentArguments:
     # * * * * * * * * * * * * * * * * * * * * Custom Evaluation  * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     eval_filter: Optional[List[str]] = field(
         default_factory=list, metadata={"help": "filter prediction outputs"}
+    )
+    eval_breakdown: Optional[List[str]] = field(
+        default_factory=list, metadata={"help": "breakdown prediction outputs"}
     )

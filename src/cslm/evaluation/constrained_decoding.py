@@ -69,6 +69,8 @@ class ConstrainedDecoding(Prediction):
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
+        self.l1_vocab_size = len(l1_tokenizer.get_vocab())
+        self.l2_vocab_size = len(l2_tokenizer.get_vocab())
 
     def _predict_step(self, model, inputs):
         cells = beam_search(model=model,
@@ -123,22 +125,23 @@ class ConstrainedDecoding(Prediction):
             if step % num_samples_per_example == 0:
                 # do some extra logging
                 src = decode_input(predict_result["input_ids"], self.l0_tokenizer)
-                tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
+                tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
                 print(f"step: {step}", file=self.output_file)
                 print(f"src: {src}", file=self.output_file)
                 print(f"ref: {tgt}", file=self.output_file)
                 print(f"------------------------", file=self.output_file)
-
+            if step % self.args.decode_num_sequences >= self.args.decode_display_sequences:
+                return
             # prepare outputs
             # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
             # if you want highlight on tokens that match the reference
-            output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer,
+            output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size,
                                    underline_filter=language_agnostic_token_matcher()(
                                        decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer,
-                                                     self.l2_tokenizer, join=False, color=False)))
-            ref_toks = untag(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
+                                                     self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)))
+            ref_toks = untag(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size,join=False,
                                 color=False)[1:-1])
-            out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, join=False,
+            out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False,
                                    color=False)[1:-1])
             pcs = precision(ref_toks, out_toks)
             rcl = recall(ref_toks, out_toks)
