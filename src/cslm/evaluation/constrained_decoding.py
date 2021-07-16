@@ -130,32 +130,31 @@ class ConstrainedDecoding(Prediction):
                 print(f"src: {src}", file=self.output_file)
                 print(f"ref: {tgt}", file=self.output_file)
                 print(f"------------------------", file=self.output_file)
-            if step % self.args.decode_num_sequences >= self.args.decode_display_sequences:
-                return
-            # prepare outputs
-            # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
-            # if you want highlight on tokens that match the reference
-            output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size,
-                                   underline_filter=language_agnostic_token_matcher()(
-                                       decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer,
-                                                     self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)))
-            ref_toks = untag(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size,join=False,
-                                color=False)[1:-1])
-            out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False,
-                                   color=False)[1:-1])
-            pcs = precision(ref_toks, out_toks)
-            rcl = recall(ref_toks, out_toks)
+            if step % self.args.decode_num_sequences < self.args.decode_display_sequences:
+                # prepare outputs
+                # output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer)
+                # if you want highlight on tokens that match the reference
+                output = decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size,
+                                       underline_filter=language_agnostic_token_matcher()(
+                                           decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer,
+                                                         self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)))
+                ref_toks = untag(decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size,join=False,
+                                    color=False)[1:-1])
+                out_toks = untag(decode_output(predict_result["output_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False,
+                                       color=False)[1:-1])
+                pcs = precision(ref_toks, out_toks)
+                rcl = recall(ref_toks, out_toks)
 
-            line = f"score={predict_result['score']:<7.2f} " \
-                   + f"logprob={predict_result['log_prob']:<7.2f} " \
-                   + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1) :<7.2f} " \
-                   + background(f"pcs={pcs :<7.2f}", gradient_background(pcs)) + " " \
-                   + background(f"rcl={rcl :<7.2f}", gradient_background(rcl)) + " "\
-                   + f"l2%={(predict_result['l2_count'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
-                   + (f"cs%={(predict_result['switch_count'] / predict_result['fence_count']) if predict_result['fence_count'] > 0 else 0:<7.2f} " if  "fence_count" in predict_result else "") \
-                   + f"weight={predict_result['weight']:<7.2f} " \
-                   + f"{output}"
-            print(line, file=self.output_file)
+                line = f"score={predict_result['score']:<7.2f} " \
+                       + f"logprob={predict_result['log_prob']:<7.2f} " \
+                       + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1) :<7.2f} " \
+                       + background(f"pcs={pcs :<7.2f}", gradient_background(pcs)) + " " \
+                       + background(f"rcl={rcl :<7.2f}", gradient_background(rcl)) + " "\
+                       + f"l2%={(predict_result['l2_count'] / predict_result['tok_count']) if predict_result['tok_count'] > 0 else 0:<7.2f} " \
+                       + (f"cs%={(predict_result['switch_count'] / predict_result['fence_count']) if predict_result['fence_count'] > 0 else 0:<7.2f} " if  "fence_count" in predict_result else "") \
+                       + f"weight={predict_result['weight']:<7.2f} " \
+                       + f"{output}"
+                print(line, file=self.output_file)
             if (step + 1) % self.args.decode_num_sequences == 0:
                 print(f"------------------------", file=self.output_file)
             if (step + 1) % num_samples_per_example == 0:
