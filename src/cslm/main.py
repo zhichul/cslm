@@ -116,6 +116,8 @@ def main():
         decoder_config.vocab_size = target_vocab_size
         if softmix_config is not None:
             softmix_config.vocab_size = target_vocab_size
+            softmix_config.l1_vocab_size = l1_size
+            softmix_config.l2_vocab_size = l2_size
         base_model = EncoderDecoder(encoder_decoder_config)
     else:
         raise NotImplementedError
@@ -175,6 +177,13 @@ def main():
                                                             else torch.device("cpu"))
         model.load_state_dict(d, strict=True)
         logger.info(f"loaded from {exp_args.model_name_or_path}")
+
+        if exp_args.switch_position_1_2:
+            logger.info(f"switching wpe 1 and 2")
+            x1 = model.base_model.decoder.word_position_embed.weight[1].clone().detach()
+            x2 = model.base_model.decoder.word_position_embed.weight[2].clone().detach()
+            model.base_model.decoder.word_position_embed.weight[2] = x1
+            model.base_model.decoder.word_position_embed.weight[1] = x2
 
     # setup validation evaluation
     evaluations = setup_metrics(exp_args=exp_args,
@@ -263,13 +272,14 @@ def main():
     #
     #
     # * * * * * * * * * * * * * * * * * * * * INSPECTION START * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
-    inspection = setup_inspection(exp_args=exp_args,
-                     model=model,
-                     datasets=datasets,
-                     data_collator=data_collator,
-                     l0_tokenizer=l0_tokenizer,
-                     l1_tokenizer=l1_tokenizer,
-                     l2_tokenizer=l2_tokenizer)
-    inspection.inspect_and_log()
+    if exp_args.inspect_mode is not None:
+        inspection = setup_inspection(exp_args=exp_args,
+                         model=model,
+                         datasets=datasets,
+                         data_collator=data_collator,
+                         l0_tokenizer=l0_tokenizer,
+                         l1_tokenizer=l1_tokenizer,
+                         l2_tokenizer=l2_tokenizer)
+        inspection.inspect_and_log()
 if __name__ == "__main__":
     main()

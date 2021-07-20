@@ -1,5 +1,7 @@
 import torch.nn as nn
 import torch
+from cslm.modeling.activations import ACTIVATIONS
+
 from cslm.modeling.attention import CrossAttention
 from cslm.modeling.head import LMHead
 from cslm.modeling.module import Module
@@ -60,7 +62,7 @@ class BlockDiagonalProjection(Module):
 
 class ProjectionTransform(Module):
 
-    def __init__(self, n_in, n_out, n_block, shared=False):
+    def __init__(self, n_in, n_out, n_block, shared=False, nonlinearity=None):
         super().__init__()
         self.shared = shared
         self.n_block = n_block
@@ -70,17 +72,22 @@ class ProjectionTransform(Module):
             self.linear = nn.Linear(n_in, n_out * n_block)
         else:
             self.linear = nn.Linear(n_in, n_out)
+        self.nonlinearity_type = nonlinearity
+        if self.nonlinearity_type is not None:
+            self.nonlinearity = ACTIVATIONS[nonlinearity]
+        else:
+            self.nonlinearity = lambda x: x
 
     def forward(self,
                 hidden_states=None,
                 encoder_hidden_states=None,
                 encoder_attention_mask=None):
         if not self.shared:
-            return self.linear(hidden_states)
+            return self.nonlinearity(self.linear(hidden_states))
         else:
             ret = self.linear(hidden_states)[..., None, :]
             ret = ret.repeat_interleave(self.n_block, dim=-2)
-            return ret.reshape(ret.size()[:-2] + (self.n_block * self.n_out,))
+            return self.nonlinearity(ret.reshape(ret.size()[:-2] + (self.n_block * self.n_out,)))
 
 
 class SoftmixOutputLayer(LMHead):
@@ -97,15 +104,19 @@ class SoftmixOutputLayer(LMHead):
         self.transform = config.transform
         self.conditional = config.conditional
         self.normalized = config.normalized
+        self.l1_vocab_size = config.l1_vocab_size
+        self.l2_vocab_size = config.l2_vocab_size
+        self.language_heads = config.language_heads
+        self.projection_nonlinearity = config.projection_nonlinearity
 
         # set up parameters
         self.ln_1 = nn.LayerNorm(self.n_embd, eps=config.layer_norm_epsilon)
 
         # transformation
         if self.transform == "projection":
-            self.transform = ProjectionTransform(self.n_embd, self.n_v, self.n_head)
+            self.transform = ProjectionTransform(self.n_embd, self.n_v, self.n_head, nonlinearity=self.projection_nonlinearity)
         elif self.transform == "shared_projection":
-            self.transform = ProjectionTransform(self.n_embd, self.n_v, self.n_head, shared=True)
+            self.transform = ProjectionTransform(self.n_embd, self.n_v, self.n_head, shared=True, nonlinearity=self.projection_nonlinearity)
         elif self.transform == "cross_attention":
             assert config.attn_type == "softmix_multihead"
             self.transform = CrossAttention(config)
@@ -119,6 +130,9 @@ class SoftmixOutputLayer(LMHead):
             self.output_layer = nn.Linear(self.n_v, self.vocab_size, bias=False)
         else:
             self.output_layer = BlockDiagonalProjection(self.n_v, self.vocab_size, self.n_head)
+
+        if self.language_heads and self.n_head != 2:
+            raise ValueError("Language heads flag only works when there are two heads.")
 
         # head mixer
         if self.conditional:
@@ -180,6 +194,11 @@ class SoftmixOutputLayer(LMHead):
 
         # predict next token
         vocab_logits = self.output_layer(hidden_states)
+        if self.language_heads:
+            mask = vocab_logits.new_zeros(vocab_logits.size(), dtype=torch.bool)
+            mask[:,:,0,self.l1_vocab_size:] = 1
+            mask[:,:,1,4:self.l1_vocab_size] = 1
+            vocab_logits = vocab_logits.masked_fill(mask, -float("inf"))
         self.expose(vocab_logits, "logits_by_head")
 
         # mix predictions bby heads

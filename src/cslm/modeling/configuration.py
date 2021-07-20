@@ -67,8 +67,12 @@ class SoftmixConfig(Config):
     initializer_range: bool = field(default=0.02)
 
     vocab_size: int = field(default=1)
+    l1_vocab_size: int = field(default=1)
+    l2_vocab_size: int = field(default=1)
 
     transform: str = field(default="projection")
+    projection_nonlinearity: str = field(default=None)
     sharing: bool = field(default=True)
     conditional: bool = field(default=True)
     normalized: bool = field(default=True)
+    language_heads: bool = field(default=False)

@@ -214,3 +214,7 @@ class ExperimentArguments:
     inspect_load_cache: Optional[str] = field(
         default=None, metadata={"help": "Load from cache instead of actually inspecting"}
     )
+    # * * * * * * * * * * * * * * * * * * * * Flags   * * * * * * * * * * * * * * * * * * * * * * * * * * * #
+    switch_position_1_2: Optional[bool] = field(
+        default=False
+    )
