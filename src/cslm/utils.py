@@ -240,11 +240,19 @@ def syn_pos(tokens):
 def background(tok, color):
     return f"\033[48;5;{color}m{tok}\033[0m"
 
-def gradient_background(f):
-    i = round(f * 10)
-    colors = [196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46]
-    color = colors[i]
-    return color
+def gradient_background(f, mode="green2red"):
+    if mode == "green2red":
+        i = round(f * 10)
+        colors = [196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46]
+        color = colors[i]
+        return color
+    elif mode == "black2white":
+        i = round(f * 10)
+        colors = [255, 253, 251, 249, 247, 245, 243, 241, 239, 237, 235]
+        color = colors[i]
+        return color
+    else:
+        raise NotImplementedError
 
 def precision(ref, cand):
     if len(cand) == 0:

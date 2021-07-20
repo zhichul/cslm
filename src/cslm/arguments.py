@@ -201,3 +201,16 @@ class ExperimentArguments:
     eval_breakdown: Optional[List[str]] = field(
         default_factory=list, metadata={"help": "breakdown prediction outputs"}
     )
+    # * * * * * * * * * * * * * * * * * * * * Inspection   * * * * * * * * * * * * * * * * * * * * * * * * * * * #
+    inspect_mode: Optional[str] = field(
+        default=None, metadata={"help": "If set will run inspection. Otherwise do not run decode."}
+    )
+    inspect_output: Optional[str] = field(
+        default=None, metadata={"help": "inspection output file"}
+    )
+    inspect_format: Optional[str] = field(
+        default="data", metadata={"help": "one of human/data."}
+    )
+    inspect_load_cache: Optional[str] = field(
+        default=None, metadata={"help": "Load from cache instead of actually inspecting"}
+    )

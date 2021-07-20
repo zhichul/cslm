@@ -7,6 +7,7 @@ from cslm.evaluation.evaluation import EvaluationList, BreakdownEvaluation
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyPrediction, CrossEntropyEvaluation
 from cslm.evaluation.next_word_pos import SyntheticNextWordPOS
+from cslm.evaluation.softmix_coeff import SoftmixCoeff
 from cslm.evaluation.tok_count import TokCount
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
 
@@ -404,3 +405,56 @@ def setup_metrics(exp_args=None,
                                                    args=exp_args,
                                                    output_file=None)
         evaluations[pred_key].add_evaluation(name, validation_evaluations[eval_key])
+
+
+def setup_inspection(exp_args=None,
+                     model=None,
+                     datasets=None,
+                     data_collator=None,
+                     l0_tokenizer=None,
+                     l1_tokenizer=None,
+                     l2_tokenizer=None):
+    if exp_args.inspect_mode is None:
+        return None
+    # setup output file
+    if exp_args.inspect_output is not None \
+            and exp_args.inspect_output != "terminal" \
+            and os.path.exists(exp_args.inspect_output) \
+            and not exp_args.inspect_overwrite_output:
+        raise ValueError(
+            f"{exp_args.inspect_output} exists, please set inspect_overwrite_output to true if you wish to overwrite.")
+    if exp_args.inspect_output is None:
+        output_file = None
+    elif exp_args.inspect_output == "terminal" and exp_args.inspect_format == "data":
+        output_file = sys.stdout.buffer
+    elif exp_args.inspect_output == "terminal" and exp_args.inspect_format == "human":
+        output_file = sys.stdout
+    elif exp_args.inspect_output != "terminal" and exp_args.inspect_format == "data":
+        os.makedirs(os.path.dirname(exp_args.inspect_output), exist_ok=True)
+        output_file = open(exp_args.inspect_output, "wb")
+    elif exp_args.inspect_output != "terminal" and exp_args.inspect_format == "human":
+        os.makedirs(os.path.dirname(exp_args.inspect_output), exist_ok=True)
+        output_file = open(exp_args.inspect_output, "wt")
+    else:
+        raise ValueError(f"Unknown output / format: {exp_args.inspect_output}/{exp_args.inspect_format}")
+
+    if exp_args.inspect_load_cache is not None:
+        cache_file = open(exp_args.inspect_load_cache, "rb")
+    else:
+        cache_file = None
+
+    # setup prediction
+    if exp_args.inspect_mode == "softmix_coeff":
+        inspection = SoftmixCoeff(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file)
+
+    else:
+        raise NotImplementedError
+    return inspection

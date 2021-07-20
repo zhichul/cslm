@@ -14,7 +14,8 @@ from transformers.utils import logging
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
 from cslm.evaluation.evaluation import EvaluationList
-from cslm.evaluation.setup import setup_prediction, setup_evaluation, setup_metrics, setup_breakdown_evaluation
+from cslm.evaluation.setup import setup_prediction, setup_evaluation, setup_metrics, setup_breakdown_evaluation, \
+    setup_inspection
 from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticPrecision, UnigramLanguageAgnosticRecall
 from cslm.evaluation.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
@@ -29,7 +30,6 @@ from cslm.utils import set_seed, seq_numel, decode_input, decode_output
 from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory
 from grid_utils import acquire_all_available_gpu
 
-import cslm.inference.search_schemes.l1_mixed_l2 as l1_mixed_l2
 
 def main():
     # * * * * * * * * * * * * * * * * * * * * CMD SETUP START * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
@@ -258,6 +258,18 @@ def main():
         # decode and eval mode
         logger.info("Running prediction and evaluation.")
         evaluation.evaluate_and_log()
-
+    # * * * * * * * * * * * * * * * * * * * * INFERENCE END * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
+    #
+    #
+    #
+    # * * * * * * * * * * * * * * * * * * * * INSPECTION START * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
+    inspection = setup_inspection(exp_args=exp_args,
+                     model=model,
+                     datasets=datasets,
+                     data_collator=data_collator,
+                     l0_tokenizer=l0_tokenizer,
+                     l1_tokenizer=l1_tokenizer,
+                     l2_tokenizer=l2_tokenizer)
+    inspection.inspect_and_log()
 if __name__ == "__main__":
     main()

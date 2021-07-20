@@ -189,9 +189,15 @@ class SoftmixOutputLayer(LMHead):
             log_contrib_by_head = log_probs_by_head + log_weight_by_head # batch seq heads vocab
             logits = torch.logsumexp(log_contrib_by_head, dim=-2) # batch seq vocab # plus this should be normalized log probability
 
+            if not self.training:
+                self.expose(torch.softmax(head_logits.squeeze(-1), dim=-1), "mixture_probs") # batch seq head
+
         else:
             scaled_logits_by_head = head_logits + vocab_logits # batch seq heads vocab
             logits = torch.logsumexp(scaled_logits_by_head, dim=-2) # batch seq vocab # this is true logits, not normalized
+
+            if not self.training:
+                self.expose(torch.softmax(torch.logsumexp(scaled_logits_by_head, dim=-1), dim=-1), "mixture_probs") # batch seq head
 
         # reshape back
         logits = logits.reshape(output_batch_size + logits.size()[-2:])

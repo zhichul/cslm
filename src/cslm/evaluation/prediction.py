@@ -71,6 +71,7 @@ class Prediction:
         if not self.cache_file:
             model = self.model
             model.to(self.args.device)
+            model.eval()
             eval_dataloader = self.get_eval_dataloader()
 
             # log some stats

@@ -28,7 +28,7 @@ class CrossEntropyPrediction(Prediction):
                 l2_tokenizer=None,
                 force_langauge=False,
                 l1_range=None,
-                l2_range=False
+                l2_range=None
                 ):
         super().__init__(model=model,
                         args=args,
@@ -43,6 +43,8 @@ class CrossEntropyPrediction(Prediction):
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
+        self.l1_vocab_size = len(l1_tokenizer.get_vocab())
+        self.l2_vocab_size = len(l2_tokenizer.get_vocab())
 
         # setup for forced language evaluation
         self.force_language = force_langauge
@@ -109,12 +111,12 @@ class CrossEntropyPrediction(Prediction):
             if step % num_samples_per_example == 0:
                 # do some extra logging
                 src = decode_input(predict_result["input_ids"], self.l0_tokenizer)
-                tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
+                tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
                 print(f"step: {step}", file=self.output_file)
                 print(f"src: {src}", file=self.output_file)
                 print(f"ref: {tgt}", file=self.output_file)
                 print(f"------------------------", file=self.output_file)
-            output = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer)
+            output = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
             line = f"logprob={predict_result['log_prob']:<7.3f} " \
                    + f"ce={-predict_result['log_prob'] / (predict_result['tok_count'] + 1):<7.3f} " \
                    + f"weight={predict_result['weight']:<7.3f} " \
