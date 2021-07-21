@@ -22,7 +22,7 @@ class TokCount(Evaluation):
     def log(self, summary):
         if self.args.eval_format == "human":
             print(f"{summary['n_examples']:.2f} weighted examples, "
-                  f"with {self.reduction} average entropy (token level) {summary['tok_count']:.2f}",
+                  f"with {self.reduction} average length {summary['tok_count']:.2f}",
                   file=self.output_file)
         elif self.args.eval_format == "data":
             self.output_file.write(orjson.dumps(summary) + "\n".encode("utf-8"))

@@ -58,7 +58,7 @@ def setup_prediction(exp_args=None,
     # setup prediction
     if exp_args.decode_mode.startswith("l1_mixed_l2"):
         fn_initial_state = l1_mixed_l2.initial_state_factory()
-        fn_update_state = l1_mixed_l2.update_state_factory(eos_ids)
+        fn_update_state = l1_mixed_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
         fn_assign_bin = l1_mixed_l2.assign_bin_factory()
         num_bins = l1_mixed_l2.NUM_BINS
         do_sample = exp_args.decode_do_sample
@@ -82,7 +82,7 @@ def setup_prediction(exp_args=None,
                                          cache_file=cache_file)
     elif exp_args.decode_mode.startswith("l1_3_l2"):
         fn_initial_state = l1_3_l2.initial_state_factory()
-        fn_update_state = l1_3_l2.update_state_factory(eos_ids)
+        fn_update_state = l1_3_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
         fn_assign_bin = l1_3_l2.assign_bin_factory()
         num_bins = l1_3_l2.NUM_BINS
         do_sample = exp_args.decode_do_sample
@@ -106,7 +106,7 @@ def setup_prediction(exp_args=None,
                                          cache_file=cache_file)
     elif exp_args.decode_mode.startswith("l1_5_l2"):
         fn_initial_state = l1_5_l2.initial_state_factory()
-        fn_update_state = l1_5_l2.update_state_factory(eos_ids)
+        fn_update_state = l1_5_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
         fn_assign_bin = l1_5_l2.assign_bin_factory()
         num_bins = l1_5_l2.NUM_BINS
         do_sample = exp_args.decode_do_sample
@@ -146,7 +146,7 @@ def setup_prediction(exp_args=None,
         )
     elif exp_args.decode_mode == "switch_5_percentage":
         fn_initial_state = switch_5_percentage.initial_state_factory()
-        fn_update_state = switch_5_percentage.update_state_factory(eos_ids)
+        fn_update_state = switch_5_percentage.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
         fn_assign_bin = switch_5_percentage.assign_bin_factory()
         num_bins = switch_5_percentage.NUM_BINS
         do_sample = exp_args.decode_do_sample
@@ -170,7 +170,7 @@ def setup_prediction(exp_args=None,
                                          cache_file=cache_file)
     elif exp_args.decode_mode == "switch_5_count":
         fn_initial_state = switch_5_count.initial_state_factory()
-        fn_update_state = switch_5_count.update_state_factory(eos_ids)
+        fn_update_state = switch_5_count.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
         fn_assign_bin = switch_5_count.assign_bin_factory()
         num_bins = switch_5_count.NUM_BINS
         do_sample = exp_args.decode_do_sample
@@ -371,7 +371,7 @@ def setup_metrics(exp_args=None,
                                                     pad_id=pad_id,
                                                     vocab_size=vocab_size,
                                                     fn_initial_state=switch_5_count.initial_state_factory(),
-                                                    fn_update_state=switch_5_count.update_state_factory(eos_ids),
+                                                    fn_update_state=switch_5_count.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab())),
                                                     fn_assign_bin=switch_5_count.assign_bin_factory(),
                                                     num_bins=switch_5_count.NUM_BINS,
                                                     do_sample=True,

@@ -109,7 +109,7 @@ def main():
     encoder_decoder_config = EncoderDecoderConfig(encoder_config=encoder_config, decoder_config=decoder_config)
     softmix_config = Config.from_json(exp_args.softmix_config) if exp_args.softmix_config else None
 
-    if exp_args.train_task == "meaning_to_text":
+    if exp_args.train_task in ["meaning_to_text", "asym_meaning_to_text"]:
         src_vocab_size = l0_tokenizer.get_vocab_size()
         target_vocab_size = l1_tokenizer.get_vocab_size() + l2_tokenizer.get_vocab_size()
         encoder_config.vocab_size = src_vocab_size

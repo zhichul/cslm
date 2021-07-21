@@ -21,9 +21,9 @@ def assign_bin_factory():
     return assign_bin
 
 
-def update_state_factory(eos_ids):
+def update_state_factory(eos_ids, l1_vocab_size=304):
     def update_state(prefix_state, token):
-        next_is_l2 = (token >= 304)
+        next_is_l2 = (token >= l1_vocab_size)
         next_is_eos = token.new_zeros(token.size(), dtype=torch.bool)
         prev_is_bos = prefix_state["last_token"] == -100
         for eos_id in eos_ids:

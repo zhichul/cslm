@@ -1,6 +1,6 @@
 import torch
 
-from cslm.data.loading.preprocessing.tritext import meaning_to_text_preprocessor
+from cslm.data.loading.preprocessing.tritext import meaning_to_text_preprocessor, asym_meaning_to_text_preprocessor
 from datasets import load_dataset
 import os
 import orjson
@@ -48,6 +48,8 @@ def load_tritext_dataset(dataset_file=None,
     # function that will map triples of strings to training input format (input_ids, attention_masks, etc)
     if preprocessor == "meaning_to_text":
         prepare = meaning_to_text_preprocessor(l0_tokenizer, l1_tokenizer, l2_tokenizer)
+    elif preprocessor == "asym_meaning_to_text":
+        prepare = asym_meaning_to_text_preprocessor(l0_tokenizer, l1_tokenizer, l2_tokenizer)
     else:
         raise ValueError(f"Unknown tritext preprocessor: {preprocessor}")
 
