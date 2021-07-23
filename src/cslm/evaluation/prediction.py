@@ -14,13 +14,15 @@ class Prediction:
                     eval_dataset=None,
                     data_collator=None,
                     output_file=None,
-                    cache_file=None):
+                    cache_file=None,
+                    filters=tuple()):
         self.model = model
         self.args = args
         self.eval_dataset = eval_dataset
         self.data_collator = data_collator
         self.output_file = output_file
         self.cache_file = cache_file
+        self.filters = filters
         if self.args.per_device_eval_batch_size != 1:
             raise NotImplementedError
 
@@ -54,7 +56,7 @@ class Prediction:
             yield result
 
     def log_step(self, step, predict_result):
-        if self.output_file is not None:
+        if self.output_file is not None and all(filter(predict_result) for filter in self.filters):
             return self._log_step(step, predict_result)
         return None
 

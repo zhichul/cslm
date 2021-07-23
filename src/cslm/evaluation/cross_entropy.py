@@ -19,6 +19,7 @@ class CrossEntropyPrediction(Prediction):
                 data_collator=None,
                 output_file=None,
                 cache_file=None,
+                filters=None,
                 bos_id=None,
                 eos_ids=None,
                 pad_id=None,
@@ -28,14 +29,15 @@ class CrossEntropyPrediction(Prediction):
                 l2_tokenizer=None,
                 force_langauge=False,
                 l1_range=None,
-                l2_range=None
+                l2_range=None,
                 ):
         super().__init__(model=model,
                         args=args,
                         eval_dataset=eval_dataset,
                         data_collator=data_collator,
                         output_file=output_file,
-                        cache_file=cache_file)
+                        cache_file=cache_file,
+                        filters=filters)
         self.bos_id = bos_id
         self.eos_ids = eos_ids
         self.pad_id = pad_id

@@ -201,6 +201,9 @@ class ExperimentArguments:
     eval_breakdown: Optional[List[str]] = field(
         default_factory=list, metadata={"help": "breakdown prediction outputs"}
     )
+    decode_filter: Optional[List[str]] = field(
+        default_factory=list, metadata={"help": "filter prediction outputs"}
+    )
     # * * * * * * * * * * * * * * * * * * * * Inspection   * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     inspect_mode: Optional[str] = field(
         default=None, metadata={"help": "If set will run inspection. Otherwise do not run decode."}

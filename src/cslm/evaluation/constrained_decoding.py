@@ -38,6 +38,7 @@ class ConstrainedDecoding(Prediction):
                   data_collator=None,
                   output_file=None,
                   cache_file=None,
+                  filters=None,
                   format_filter_factories=None,
                   bos_id=None,
                   eos_ids=None,
@@ -56,7 +57,8 @@ class ConstrainedDecoding(Prediction):
                          eval_dataset=eval_dataset,
                          data_collator=data_collator,
                          output_file=output_file,
-                         cache_file=cache_file)
+                         cache_file=cache_file,
+                         filters=filters)
         self.bos_id = bos_id
         self.eos_ids = eos_ids
         self.pad_id = pad_id

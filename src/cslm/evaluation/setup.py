@@ -54,7 +54,7 @@ def setup_prediction(exp_args=None,
         cache_file = open(exp_args.decode_load_cache, "rb")
     else:
         cache_file = None
-
+    filters = [eval(filter) for filter in exp_args.decode_filter]
     # setup prediction
     if exp_args.decode_mode.startswith("l1_mixed_l2"):
         fn_initial_state = l1_mixed_l2.initial_state_factory()
@@ -79,7 +79,8 @@ def setup_prediction(exp_args=None,
                                          l1_tokenizer=l1_tokenizer,
                                          l2_tokenizer=l2_tokenizer,
                                          output_file=output_file,
-                                         cache_file=cache_file)
+                                         cache_file=cache_file,
+                                         filters=filters)
     elif exp_args.decode_mode.startswith("l1_3_l2"):
         fn_initial_state = l1_3_l2.initial_state_factory()
         fn_update_state = l1_3_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
@@ -103,7 +104,8 @@ def setup_prediction(exp_args=None,
                                          l1_tokenizer=l1_tokenizer,
                                          l2_tokenizer=l2_tokenizer,
                                          output_file=output_file,
-                                         cache_file=cache_file)
+                                         cache_file=cache_file,
+                                         filters=filters)
     elif exp_args.decode_mode.startswith("l1_5_l2"):
         fn_initial_state = l1_5_l2.initial_state_factory()
         fn_update_state = l1_5_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
@@ -127,7 +129,8 @@ def setup_prediction(exp_args=None,
                                          l1_tokenizer=l1_tokenizer,
                                          l2_tokenizer=l2_tokenizer,
                                          output_file=output_file,
-                                         cache_file=cache_file)
+                                         cache_file=cache_file,
+                                         filters=filters)
     elif exp_args.decode_mode == "cross_entropy":
         prediction = CrossEntropyPrediction(
             model=model,
@@ -142,8 +145,8 @@ def setup_prediction(exp_args=None,
             l0_tokenizer=l0_tokenizer,
             l1_tokenizer=l1_tokenizer,
             l2_tokenizer=l2_tokenizer,
-            cache_file=cache_file
-        )
+            cache_file=cache_file,
+            filters=filters)
     elif exp_args.decode_mode == "switch_5_percentage":
         fn_initial_state = switch_5_percentage.initial_state_factory()
         fn_update_state = switch_5_percentage.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
@@ -167,7 +170,8 @@ def setup_prediction(exp_args=None,
                                          l1_tokenizer=l1_tokenizer,
                                          l2_tokenizer=l2_tokenizer,
                                          output_file=output_file,
-                                         cache_file=cache_file)
+                                         cache_file=cache_file,
+                                         filters=filters)
     elif exp_args.decode_mode == "switch_5_count":
         fn_initial_state = switch_5_count.initial_state_factory()
         fn_update_state = switch_5_count.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
@@ -191,7 +195,8 @@ def setup_prediction(exp_args=None,
                                          l1_tokenizer=l1_tokenizer,
                                          l2_tokenizer=l2_tokenizer,
                                          output_file=output_file,
-                                         cache_file=cache_file)
+                                         cache_file=cache_file,
+                                         filters=filters)
     else:
         raise NotImplementedError
     return prediction
