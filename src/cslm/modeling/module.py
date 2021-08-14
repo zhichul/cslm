@@ -36,7 +36,6 @@ class Module(nn.Module):
         `tensor` will be stored under `name`, if the name is matched
         by one of a set of pre-specified regex.
         """
-        print(name, [(pattern, re.match(pattern, name)) for pattern in self.exposure_patterns])
         if any(re.match(pattern, name) for pattern in self.exposure_patterns):
             if name in self.exposed:
                 logger.warning(f"Overwriting exposed tensor {name}, did you release exposed tensors after the last forward call?")
