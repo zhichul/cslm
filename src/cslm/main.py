@@ -220,6 +220,23 @@ def main():
             l1_range=slice(4, l1_size, 1),
             l2_range=slice(l1_size + 4, vocab_size, 1)
         )
+    elif exp_args.train_mode == "ebm_interventional_mle":
+        trainer = MLETrainer(
+            model=model,
+            args=exp_args,
+            train_dataset=datasets["train"],
+            data_collator=data_collator,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            train_dataset_weights=exp_args.train_weight,
+            train_dataset_lengths=train_dataset_lengths,
+            evaluations=evaluations,
+            force_langauge=True,
+            ebm=True,
+            vocab_size=vocab_size,
+            l1_range=slice(4, l1_size, 1),
+            l2_range=slice(l1_size + 4, vocab_size, 1)
+        )
     else:
         raise NotImplementedError
     # * * * * * * * * * * * * * * * * * * * * TRAINING SETUP END * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #

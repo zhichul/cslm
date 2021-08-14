@@ -14,6 +14,7 @@ from cslm.evaluation.metrics.next_word_pos import SyntheticNextWordPOS
 from cslm.evaluation.inspections.softmix_coeff import SoftmixCoeff
 from cslm.evaluation.metrics.tok_count import TokCount
 from cslm.evaluation.metrics.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
+from cslm.evaluation.predictions.sampling import Sampling
 
 from cslm.inference.search_schemes import l1_mixed_l2, l1_3_l2, l1_5_l2, switch_5_percentage, switch_5_count
 
@@ -58,7 +59,22 @@ def setup_prediction(exp_args=None,
         cache_file = None
     filters = [eval(filter) for filter in exp_args.decode_filter]
     # setup prediction
-    if exp_args.decode_mode.startswith("l1_mixed_l2"):
+    if exp_args.decode_mode.startswith("sample"):
+        prediction = Sampling(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         bos_id=bos_id,
+                                         eos_ids=eos_ids,
+                                         pad_id=pad_id,
+                                         vocab_size=vocab_size,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file,
+                                         filters=filters)
+    elif exp_args.decode_mode.startswith("l1_mixed_l2"):
         fn_initial_state = l1_mixed_l2.initial_state_factory()
         fn_update_state = l1_mixed_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
         fn_assign_bin = l1_mixed_l2.assign_bin_factory()
