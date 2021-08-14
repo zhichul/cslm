@@ -1,24 +1,15 @@
 import os
 import sys
-from collections import OrderedDict
 
-import orjson
 import torch
-from cslm.inference.search_schemes import switch_5_count
 from datasets import DatasetDict
-from torch import nn
 from torch.utils.data import ConcatDataset
 from transformers import HfArgumentParser, AdamW
 from transformers.utils import logging
 
 from cslm.arguments import ExperimentArguments
 from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
-from cslm.evaluation.evaluation import EvaluationList
-from cslm.evaluation.setup import setup_prediction, setup_evaluation, setup_metrics, setup_breakdown_evaluation, \
-    setup_inspection
-from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticPrecision, UnigramLanguageAgnosticRecall
-from cslm.evaluation.constrained_decoding import ConstrainedDecoding
-from cslm.evaluation.cross_entropy import CrossEntropyEvaluation, CrossEntropyPrediction
+from cslm.evaluation.setup import setup_prediction, setup_evaluation, setup_metrics, setup_inspection
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
 from cslm.modeling.head import HeadBuilder
@@ -26,7 +17,7 @@ from cslm.modeling.softmix import SoftmixOutputLayer
 from cslm.modeling.transformer import TransformerLMHead
 from cslm.training.mle_trainer import MLETrainer
 from cslm.training.utils import get_linear_schedule_with_warmup
-from cslm.utils import set_seed, seq_numel, decode_input, decode_output
+from cslm.utils import set_seed, seq_numel
 from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory
 from grid_utils import acquire_all_available_gpu
 
@@ -36,7 +27,6 @@ def main():
     acquire_all_available_gpu()
     logger = logging.get_logger(__name__)
 
-    set_seed(42)
     parser = HfArgumentParser(ExperimentArguments)
 
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -45,6 +35,8 @@ def main():
         exp_args, = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         exp_args, = parser.parse_args_into_dataclasses()
+
+    set_seed(exp_args.seed)
 
     logger.info(exp_args)
     # * * * * * * * * * * * * * * * * * * * * CMD SETUP END * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #

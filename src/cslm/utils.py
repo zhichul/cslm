@@ -280,3 +280,9 @@ def flatten_dict(d, parent_key='', sep=','):
         else:
             items.append((new_key, v))
     return dict(items)
+
+def integers():
+    count = 0
+    while True:
+        yield count
+        count += 1

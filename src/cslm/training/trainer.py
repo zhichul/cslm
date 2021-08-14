@@ -72,11 +72,11 @@ class Trainer:
 
         # log some stats
         total_train_batch_size = self.args.per_device_train_batch_size * self.args.gradient_accumulation_steps
-        num_examples = len(train_dataloader)
+        num_batches = len(train_dataloader)
         max_steps = self.args.max_steps
 
         logger.info("***** Running training *****")
-        logger.info(f"  Num examples = {num_examples}")
+        logger.info(f"  Num batches = {num_batches}")
         logger.info(f"  Instantaneous batch size per device = {self.args.per_device_train_batch_size}")
         logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_train_batch_size}")
         logger.info(f"  Gradient Accumulation steps = {self.args.gradient_accumulation_steps}")

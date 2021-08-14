@@ -1,7 +1,12 @@
 import orjson
+import torch
+
+from cslm.data.loading.tokenizer_loading import combine_wordlevel_tokenizer
 from torch.utils.data import DataLoader, SequentialSampler
 from transformers.utils import logging
 import tqdm
+
+from cslm.utils import integers
 
 logger = logging.get_logger(__name__)
 
@@ -15,7 +20,10 @@ class Prediction:
                     data_collator=None,
                     output_file=None,
                     cache_file=None,
-                    filters=tuple()):
+                    filters=tuple(),
+                    l0_tokenizer=None,
+                    l1_tokenizer=None,
+                    l2_tokenizer=None):
         self.model = model
         self.args = args
         self.eval_dataset = eval_dataset
@@ -23,6 +31,9 @@ class Prediction:
         self.output_file = output_file
         self.cache_file = cache_file
         self.filters = filters
+        self.l0_tokenizer = l0_tokenizer
+        self.l1_tokenizer = l1_tokenizer
+        self.l2_tokenizer = l2_tokenizer
         if self.args.per_device_eval_batch_size != 1:
             raise NotImplementedError
 

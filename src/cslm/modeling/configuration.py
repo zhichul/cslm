@@ -37,6 +37,7 @@ class TransformerConfig(Config):
 
     layer_norm_epsilon: float = field(default=1e-5)
     initializer_range: bool = field(default=0.02)
+    pos_embd: bool = True
 
 
 

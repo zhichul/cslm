@@ -217,6 +217,15 @@ class ExperimentArguments:
     inspect_load_cache: Optional[str] = field(
         default=None, metadata={"help": "Load from cache instead of actually inspecting"}
     )
+    inspect_live: Optional[bool] = field(
+        default=False, metadata={"help": "Live interactive inspection"}
+    )
+    inspect_console: Optional[bool] = field(
+        default=False, metadata={"help": "Live console inspection"}
+    )
+    inspect_expose: Optional[List[str]] = field(
+        default_factory=list, metadata={"help": "Exposure patterns"}
+    )
     # * * * * * * * * * * * * * * * * * * * * Flags   * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     switch_position_1_2: Optional[bool] = field(
         default=False

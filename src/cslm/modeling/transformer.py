@@ -109,7 +109,8 @@ class Transformer(Module):
         self.n_embd = config.n_embd
 
         self.word_type_embed = nn.Embedding(config.vocab_size, self.n_embd)
-        self.word_position_embed = nn.Embedding(config.n_positions, self.n_embd)
+        if self.config.pos_embd:
+            self.word_position_embed = nn.Embedding(config.n_positions, self.n_embd)
 
         self.drop = nn.Dropout(config.embd_pdrop)
 
@@ -146,8 +147,12 @@ class Transformer(Module):
 
         # run the model
         inputs_embeds = self.word_type_embed(input_ids)
-        position_embeds = self.word_position_embed(position_ids)
-        hidden_states = inputs_embeds + position_embeds
+        if self.config.pos_embd:
+            position_embeds = self.word_position_embed(position_ids)
+            hidden_states = inputs_embeds + position_embeds
+        else:
+            print("no pos")
+            hidden_states = inputs_embeds
 
         hidden_states = self.drop(hidden_states)
 

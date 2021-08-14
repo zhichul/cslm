@@ -183,6 +183,7 @@ class SoftmixOutputLayer(LMHead):
 
         # compute head mixture
         head_logits = self.head_classifier(hidden_states)[..., None]
+        self.expose(head_logits, "head_logits")
 
         # compute head transform
         hidden_states = self.transform(

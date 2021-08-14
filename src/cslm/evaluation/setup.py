@@ -3,17 +3,19 @@ import sys
 from collections import OrderedDict
 
 from cslm.evaluation.evaluation import EvaluationList, BreakdownEvaluation
+from cslm.evaluation.inspections.cross_entropy import CrossEntropyInspection
+from cslm.evaluation.inspections.softmix_cross_attention import SoftmixCrossAttention
 
-from cslm.evaluation.constrained_decoding import ConstrainedDecoding
-from cslm.evaluation.cross_entropy import CrossEntropyPrediction, CrossEntropyEvaluation
-from cslm.evaluation.next_word_pos import SyntheticNextWordPOS
-from cslm.evaluation.softmix_coeff import SoftmixCoeff
-from cslm.evaluation.tok_count import TokCount
-from cslm.evaluation.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
+from cslm.evaluation.predictions.constrained_decoding import ConstrainedDecoding, constrained_decoding_bin_selector, constrained_decoding_length_selector
+from cslm.evaluation.predictions.cross_entropy import CrossEntropyPrediction
+from cslm.evaluation.metrics.cross_entropy import CrossEntropyEvaluation
+from cslm.evaluation.metrics.length_mismatch import LengthMismatch
+from cslm.evaluation.metrics.next_word_pos import SyntheticNextWordPOS
+from cslm.evaluation.inspections.softmix_coeff import SoftmixCoeff
+from cslm.evaluation.metrics.tok_count import TokCount
+from cslm.evaluation.metrics.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
 
 from cslm.inference.search_schemes import l1_mixed_l2, l1_3_l2, l1_5_l2, switch_5_percentage, switch_5_count
-from cslm.evaluation.constrained_decoding import constrained_decoding_bin_selector, constrained_decoding_length_selector
-
 
 def setup_prediction(exp_args=None,
                      model=None,
@@ -299,6 +301,12 @@ def setup_evaluation(prediction=None,
                               output_file=output_file,
                               reduction=exp_args.eval_reduction,
                               filters=filters)
+    elif exp_args.eval_mode == "length_mismatch":
+        evaluation = LengthMismatch(prediction=prediction,
+                              args=exp_args,
+                              output_file=output_file,
+                              reduction=exp_args.eval_reduction,
+                              filters=filters)
     else:
         raise NotImplementedError
     return evaluation
@@ -410,7 +418,7 @@ def setup_metrics(exp_args=None,
                                                    args=exp_args,
                                                    output_file=None)
         evaluations[pred_key].add_evaluation(name, validation_evaluations[eval_key])
-
+    return evaluations
 
 def setup_inspection(exp_args=None,
                      model=None,
@@ -451,6 +459,26 @@ def setup_inspection(exp_args=None,
     # setup prediction
     if exp_args.inspect_mode == "softmix_coeff":
         inspection = SoftmixCoeff(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file)
+    elif exp_args.inspect_mode == "softmix_cross_attention":
+        inspection = SoftmixCrossAttention(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file)
+    elif exp_args.inspect_mode == "cross_entropy":
+        inspection = CrossEntropyInspection(model=model,
                                          args=exp_args,
                                          eval_dataset=datasets["validation"],
                                          data_collator=data_collator,

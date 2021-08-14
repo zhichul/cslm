@@ -1,11 +1,13 @@
 import orjson
+import torch
+
 from cslm.training.utils import compute_log_probs_with_mask
 
 from cslm.utils import decode_input, decode_output, gradient_background, background
 import numpy as np
 from cslm.evaluation.inspection import Inspection
 
-class SoftmixCoeff(Inspection):
+class SoftmixCrossAttention(Inspection):
 
     def __init__(self,
                  model=None,
@@ -29,7 +31,9 @@ class SoftmixCoeff(Inspection):
         self.l2_tokenizer = l2_tokenizer
         self.l1_vocab_size = len(l1_tokenizer.get_vocab())
         self.l2_vocab_size = len(l2_tokenizer.get_vocab())
+        self.model.add_exposure_pattern(name_pattern="attn_weights", module_pattern=".*transform.*")
         self.model.add_exposure_pattern("mixture_probs")
+        self.model.add_exposure_pattern("head_logits")
 
     def _predict_step(self, model, inputs):
         decoder_last_layer = model.base_model(
@@ -39,21 +43,22 @@ class SoftmixCoeff(Inspection):
             decoder_attention_mask=inputs["decoder_attention_mask"],
         )
         exposed_tensors = dict(self.model.named_exposed_tensors())
-
         logits = model.lm_head(hidden_states=decoder_last_layer,
                                attention_mask=inputs["decoder_attention_mask"],
                                encoder_hidden_states=exposed_tensors["base_model.encoder_last_layer"],
                                encoder_attention_mask=inputs["attention_mask"])
-        sent_log_prob = compute_log_probs_with_mask(logits, inputs["decoder_input_ids"],
+        sent_log_prob = compute_log_probs_with_mask(logits, inputs["labels"],
                                                     inputs["decoder_attention_mask"])
+        token_log_prob = compute_log_probs_with_mask(logits, inputs["labels"],
+                                                    inputs["decoder_attention_mask"], reduce=False)
         total_tokens = inputs["decoder_attention_mask"].to(dtype=logits.dtype).sum() - 1
-        token_log_prob = sent_log_prob.sum() / total_tokens
-        loss = - token_log_prob
+        loss = - sent_log_prob.sum() / total_tokens
 
-        mixture_probs = dict(self.model.lm_head.named_exposed_tensors())["mixture_probs"]
-        self.model.release_exposed_tensors()
+        softmix_exposed_tensors = dict(self.model.lm_head.named_exposed_tensors())
+        mixture_probs = softmix_exposed_tensors["mixture_probs"]
+        head_logits = (softmix_exposed_tensors["head_logits"].squeeze(-1))
+        softmix_cross_attention = softmix_exposed_tensors["transform.attention.attn_weights"]
 
-        mixture_probs = mixture_probs[0].tolist()
         yield {
                     "input_ids": inputs["input_ids"][0].tolist(),
                     "attention_mask": inputs["attention_mask"][0].tolist(),
@@ -67,9 +72,13 @@ class SoftmixCoeff(Inspection):
                     "output_length": sum(inputs["decoder_attention_mask"][0].tolist()),
                     "weight": 1.0,
                     "tok_count": sum(inputs["decoder_attention_mask"][0].tolist()) - 2,
-                    "mixture_probs": mixture_probs,
+                    "mixture_probs": mixture_probs[0].tolist(),
+                    "head_logits": head_logits[0].tolist(),
+                    "softmix_cross_attention": softmix_cross_attention[0].tolist(),
                     "log_prob": sent_log_prob.item(),
+                    "tok_log_prob": token_log_prob[0].tolist(),
                     "cross_entropy": loss.item(),
+                    "labels": inputs["labels"][0].tolist()
                 }
 
     def _log_step(self, step, predict_result):
@@ -81,17 +90,26 @@ class SoftmixCoeff(Inspection):
             # do some extra logging
             src = decode_input(predict_result["input_ids"], self.l0_tokenizer)
             tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
+            o = decode_output(predict_result["labels"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
             print(f"step: {step}", file=self.output_file)
-            print(f"src: {src}", file=self.output_file)
-            print(f"ref: {tgt} log_prob={predict_result['log_prob']:<7.2f}", file=self.output_file)
+            print(f"x: {src}", file=self.output_file)
+            print(f"y: {tgt}", file=self.output_file)
+            print(f"o: {o} log_prob={predict_result['log_prob']:<7.2f} tok_log_prob={','.join([f'{lp:<.2f}' for lp in predict_result['tok_log_prob']])}", file=self.output_file)
             print(f"------------------------", file=self.output_file)
 
             # log mixture weights
             output = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size, join=False, color=False)
+            input = [f"{inptok:<10s}" for inptok in decode_input(predict_result["input_ids"], self.l0_tokenizer, join=False, color=False)]
 
-            for (tok, mixture_prob) in zip(output[1:], predict_result["mixture_probs"]):
+            for (tok, mixture_prob, head_logit) in zip(output[1:], predict_result["mixture_probs"], predict_result["head_logits"]):
                 mixture_gradient = [gradient_background(p, mode="black2white") for p in mixture_prob]
-                mixture_tokens = [background(f"{p:.2f}", b) for p, b in zip(mixture_prob, mixture_gradient)]
+                mixture_tokens = [background(f"{p:.2f}({l:.2f})", b) for p, b, l in zip(mixture_prob, mixture_gradient, head_logit)]
                 print(f"{tok:<20s} {np.argmax(mixture_prob):<10d} {' '.join(mixture_tokens)}", file=self.output_file)
 
+            for head in predict_result["softmix_cross_attention"]:
+                print(f"{'':<20s} {'':<10s} {' '.join(input)}", file=self.output_file)
+                for (tok, cross_attention) in zip(output[1:], head):
+                    attn_gradient = [gradient_background(p, mode="black2white") for p in cross_attention[:len(input)]]
+                    attn_tokens = [background(f"{p:<10.2f}", b) for p, b in zip(cross_attention[:len(input)], attn_gradient)]
+                    print(f"{tok:<20s} {np.argmax(cross_attention[:len(input)]):<10d} {' '.join(attn_tokens)}", file=self.output_file)
             print(f"------------------------\n", file=self.output_file)
