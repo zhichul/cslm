@@ -165,8 +165,14 @@ def main():
     #
     # * * * * * * * * * * * * * * * * * * * * TRAINING SETUP START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
     if exp_args.model_name_or_path:
-        d = torch.load(exp_args.model_name_or_path, map_location=torch.device("cuda") if torch.cuda.is_available()
-                                                            else torch.device("cpu"))
+        d = dict()
+        ds = []
+        for model_name_or_path in exp_args.model_name_or_path:
+            ds.append(torch.load(model_name_or_path, map_location=torch.device("cuda") if torch.cuda.is_available()
+                                                                else torch.device("cpu")))
+        for key in ds[0].keys():
+            d[key] = sum(d[key] for d in ds) / len(ds)
+
         model.load_state_dict(d, strict=True)
         logger.info(f"loaded from {exp_args.model_name_or_path}")
 
@@ -235,7 +241,10 @@ def main():
             ebm=True,
             vocab_size=vocab_size,
             l1_range=slice(4, l1_size, 1),
-            l2_range=slice(l1_size + 4, vocab_size, 1)
+            l2_range=slice(l1_size + 4, vocab_size, 1),
+            bos_id=bos_id,
+            eos_ids=eos_ids,
+            pad_id=pad_id
         )
     else:
         raise NotImplementedError
@@ -288,7 +297,11 @@ def main():
                          data_collator=data_collator,
                          l0_tokenizer=l0_tokenizer,
                          l1_tokenizer=l1_tokenizer,
-                         l2_tokenizer=l2_tokenizer)
+                         l2_tokenizer=l2_tokenizer,
+                         vocab_size=vocab_size,
+                         bos_id=bos_id,
+                         eos_ids=eos_ids,
+                         pad_id=pad_id)
         inspection.inspect_and_log()
 if __name__ == "__main__":
     main()

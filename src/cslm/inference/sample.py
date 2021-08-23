@@ -11,7 +11,8 @@ def grow_prefixes(t=None,
                   eos_ids=None,
                   final_log_probs=None,
                   next_log_probs=None,
-                  last_index=None):
+                  last_index=None,
+                  logit_bias=None):
     """
     Returns new decoder_input_ids, decoder_attention_mask, cum_log_probs.
 
@@ -23,13 +24,14 @@ def grow_prefixes(t=None,
     :param final_log_probs:
     :param final_log_probs:
     :param next_log_probs:
+    :param logit_bias:
     :return:
     """
 
     cum_log_probs = cum_log_probs.detach().clone()
 
-    # reshaping
-    prefixes_view = decoder_input_ids.view(-1, decoder_input_ids.size(-1))
+    # add logit bias
+    next_log_probs = torch.log_softmax(next_log_probs + logit_bias[:, None, :], dim=-1) # batch x num_seq x |V|
 
     samples = Categorical(logits=next_log_probs).sample()
     sample_log_probs = torch.gather(next_log_probs, -1, samples[:, :, None]).squeeze(-1)
@@ -64,6 +66,7 @@ def sample(model=None,
            eos_ids=tuple(),
            vocab_size=None,
            pad_id=None,
+           logit_bias=None,
            ):
     # assert beam_size
     batch_size = input_ids.size(0)
@@ -84,6 +87,9 @@ def sample(model=None,
     final_log_probs = torch.full((batch_size, num_return_sequences), -float("inf"), dtype=torch.float32, device=device)
     last_index = torch.full((batch_size, num_return_sequences), max_length-1, dtype=torch.long, device=device)
 
+    # compute default bias
+    if logit_bias is None:
+        logit_bias = torch.zeros((batch_size, 1), dtype=torch.float, device=device)
 
     # extract intermediate outputs necessary for computation
     model.add_exposure_pattern("encoder_last_layer")
@@ -95,11 +101,11 @@ def sample(model=None,
             decoder_attention_mask=decoder_attention_mask,
         )
         encoder_last_layer = dict(model.named_exposed_tensors())["base_model.encoder_last_layer"]
-        model.release_exposed_tensors()
         logits = model.lm_head(hidden_states=decoder_last_layer,
                                attention_mask=decoder_attention_mask,
                                encoder_hidden_states=encoder_last_layer,
                                encoder_attention_mask=attention_mask)[..., -1, :]
+        model.release_exposed_tensors()
         next_word_log_probs = torch.log_softmax(logits, dim=-1)
 
         outputs = grow_prefixes(t=t+1,
@@ -108,7 +114,8 @@ def sample(model=None,
                                 eos_ids=eos_ids,
                                 final_log_probs=final_log_probs,
                                 next_log_probs=next_word_log_probs,
-                                last_index=last_index)
+                                last_index=last_index,
+                                logit_bias=logit_bias)
         decoder_input_ids = outputs["decoder_input_ids"]
         decoder_attention_mask = outputs["decoder_attention_mask"]
         cum_log_probs = outputs["cum_log_probs"]

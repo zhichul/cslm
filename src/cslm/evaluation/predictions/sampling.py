@@ -12,26 +12,6 @@ from cslm.utils import decode_output, decode_input, untag, background, gradient_
 
 logger = logging.get_logger(__name__)
 
-def constrained_decoding_bin_selector(*args):
-    args = set(args)
-    logger.info(f"Filtering cells of constrained_decoding {{{', '.join(map(str, args))}}}")
-    return lambda prediction_result: prediction_result["cell_id"] in args
-
-def constrained_decoding_length_selector(*args):
-    args = set(args)
-    logger.info(f"Filtering lengths of constrained_decoding {{{', '.join(map(str, args))}}}")
-    return lambda prediction_result: prediction_result["decoder_input_length"] - 2 in args
-
-
-def language_agnostic_token_matcher():
-    # logger.info(f"Filtering underlining in output by containment in language agnostic reference output.")
-    def filter_factory(tgt=None):
-        tgt = set(t[:-2] for t in tgt[1:-1]) # get rid of language tag
-        def filter(token):
-            return token[:-2] in tgt
-        return filter
-    return filter_factory
-
 class Sampling(Prediction):
 
     def __init__(self,
@@ -50,7 +30,10 @@ class Sampling(Prediction):
                   num_bins=None,
                   l0_tokenizer=None,
                   l1_tokenizer=None,
-                  l2_tokenizer=None):
+                  l2_tokenizer=None,
+                  force_langauge=False,
+                  l1_range=None,
+                  l2_range=None):
         super().__init__(model=model,
                          args=args,
                          eval_dataset=eval_dataset,
@@ -68,8 +51,25 @@ class Sampling(Prediction):
         self.l2_tokenizer = l2_tokenizer
         self.l1_vocab_size = len(l1_tokenizer.get_vocab())
         self.l2_vocab_size = len(l2_tokenizer.get_vocab())
+        self.force_language = force_langauge
+        if self.force_language:
+            self.l1_range = l1_range
+            self.l2_range = l2_range
+            self.vocab_size = vocab_size
+            self.l1_bias = torch.zeros((self.vocab_size,), device=self.args.device)
+            self.l2_bias = torch.zeros((self.vocab_size,), device=self.args.device)
+            self.l1_bias[l2_range] = -float("inf")
+            self.l2_bias[l1_range] = -float("inf")
 
     def _predict_step(self, model, inputs):
+        batch_size = inputs["input_ids"].size(0)
+        if self.force_language:
+            l1_bias = self.l1_bias[None, :].expand(batch_size, self.vocab_size)
+            l2_bias = self.l2_bias[None, :].expand(batch_size, self.vocab_size)
+            lang_labels = inputs["decoder_language_labels"][:, None].expand(batch_size, self.vocab_size)
+            logit_bias = torch.where(lang_labels == 0, l1_bias , l2_bias)
+        else:
+            logit_bias = None
         outputs = sample(model=model,
                            input_ids=inputs["input_ids"],
                            attention_mask=inputs["attention_mask"],
@@ -80,7 +80,8 @@ class Sampling(Prediction):
                            bos_id=self.bos_id,
                            eos_ids=self.eos_ids,
                            pad_id=self.pad_id,
-                           vocab_size=self.vocab_size)
+                           vocab_size=self.vocab_size,
+                           logit_bias=logit_bias)
         for _, (log_prob, output, attention_mask) in enumerate(zip(outputs["log_probs"][0], outputs["decoder_input_ids"][0], outputs["decoder_attention_mask"][0])):
             yield {
                 "input_ids": inputs["input_ids"][0].tolist(),

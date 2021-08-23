@@ -133,17 +133,17 @@ class Transformer(Module):
 
         # for tensor with arbitrary number of axis, transform to  (-1, seq_length) matrix, run the model, then
         # transform back
-        input_ids = input_ids.view(-1, input_ids.size(-1))
+        input_ids = input_ids.reshape(-1, input_ids.size(-1))
 
         position_ids = torch.arange(0, input_ids.size(-1), dtype=torch.long, device=device)
-        position_ids = position_ids.unsqueeze(0).view(-1, input_ids.size(-1))
+        position_ids = position_ids.unsqueeze(0).reshape(-1, input_ids.size(-1))
 
-        attention_mask = attention_mask.view(-1,  input_ids.size(-1))[:, None, None, :] # to be broadcastable to (batch, head, seq_length, seq_length)
+        attention_mask = attention_mask.reshape(-1,  input_ids.size(-1))[:, None, None, :] # to be broadcastable to (batch, head, seq_length, seq_length)
 
         # resize encoder inputs
         if encoder_hidden_states is not None:
-            encoder_hidden_states = encoder_hidden_states.view(-1, encoder_hidden_states.size(-2), encoder_hidden_states.size(-1))
-            encoder_attention_mask = encoder_attention_mask.view(-1, encoder_attention_mask.size(-1))[:, None, None, :]
+            encoder_hidden_states = encoder_hidden_states.reshape(-1, encoder_hidden_states.size(-2), encoder_hidden_states.size(-1))
+            encoder_attention_mask = encoder_attention_mask.reshape(-1, encoder_attention_mask.size(-1))[:, None, None, :]
 
         # run the model
         inputs_embeds = self.word_type_embed(input_ids)
@@ -169,7 +169,7 @@ class Transformer(Module):
 
         # resize the hidden states
         output_shape = input_size + (hidden_states.size(-1),)
-        hidden_states = hidden_states.view(*output_shape)
+        hidden_states = hidden_states.reshape(*output_shape)
 
         return hidden_states
 

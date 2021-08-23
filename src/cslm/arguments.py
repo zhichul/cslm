@@ -17,8 +17,8 @@ class ExperimentArguments:
             )
         },
     )
-    model_name_or_path: Optional[str] = field(
-        default=None,
+    model_name_or_path: Optional[List[str]] = field(
+        default_factory=list,
         metadata={
             "help": "The model checkpoint for weights initialization."
                     "Don't set if you want to train a model from scratch."
@@ -150,6 +150,9 @@ class ExperimentArguments:
     metrics: Optional[List[str]] = field(
         default_factory=list, metadata={"help": "list of metrics to use for validation during training"}
     )
+    monte_carlo_num_sequences: Optional[int] = field(
+        default=5, metadata={"help": "Number of beams to return from beam search."}
+    )
     # * * * * * * * * * * * * * * * * * * * * Inference  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     decode_mode: Optional[str] = field(
         default=None, metadata={"help": "If set will run decoding, one of constrained_decoding. Otherwise do not run decode."}
@@ -180,6 +183,9 @@ class ExperimentArguments:
     )
     decode_overwrite_output: bool = field(
         default=False, metadata={"help": "Overwrite the content of the decode output file."},
+    )
+    decode_repetitions: Optional[int] = field(
+        default=1, metadata={"help": "how many times to run each prediction"}
     )
     # * * * * * * * * * * * * * * * * * * * * Evaluation Inference  * * * * * * * * * * * * * * * * * * * * * * * * * #
     eval_mode: Optional[str] = field(

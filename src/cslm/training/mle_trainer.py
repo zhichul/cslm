@@ -1,5 +1,7 @@
 import torch
+from cslm.utils import seq_norm
 
+from cslm.inference.sample import sample
 from cslm.training.trainer import Trainer
 from cslm.training.utils import compute_log_probs_with_mask
 from transformers.utils import logging
@@ -11,14 +13,23 @@ logger = logging.get_logger(__name__)
 def mask_logits_by_language(logits, lang_labels, vocab_mask):
     logit_mask = (1 - lang_labels[:, None]) == vocab_mask.expand(logits.size(0), vocab_mask.size(-1))
     logit_mask = logit_mask[:, None, :].expand(logits.size())
-    logits = logits.masked_fill(logit_mask, -1e9)
+    logits = logits.masked_fill(logit_mask, -float("inf"))
     return logits
+
+
+def logit_bias_by_language(lang_labels, vocab_mask):
+    logit_bias = torch.zeros((lang_labels.size(0), vocab_mask.size(-1)), device=lang_labels.device)
+    logit_mask = (1 - lang_labels[:, None]) == vocab_mask.expand(lang_labels.size(0), vocab_mask.size(-1))
+    logit_mask = logit_mask[:, :].expand(logit_bias.size())
+    logit_bias = logit_bias.masked_fill(logit_mask, -float("inf"))
+    return logit_bias
 
 class MLETrainer(Trainer):
 
-    def __init__(self, *args, force_langauge=False, ebm=False, l1_range=None, l2_range=None, vocab_size=None, **kwargs):
+    def __init__(self, *args, force_langauge=False, l1_range=None, l2_range=None, vocab_size=None, ebm=False, bos_id=None, eos_ids=None, pad_id=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.model.add_exposure_pattern("encoder_last_layer")
+        self.model.add_exposure_pattern("attn_weights")
 
         # setup for forced langauge training
         self.force_language = force_langauge
@@ -31,8 +42,18 @@ class MLETrainer(Trainer):
             self.vocab_lang[0, l2_range] = 1
         # setup a flag for training ebm interventional training
         self.ebm = ebm
+        self.bos_id = bos_id
+        self.eos_ids = eos_ids
+        self.pad_id = pad_id
 
     def training_step(self, model, inputs):
+        if self.ebm:
+            return self.training_ebm(model, inputs)
+        else:
+            return self.training_autoregressive(model, inputs)
+
+
+    def training_autoregressive(self, model, inputs):
         decoder_last_layer = model.base_model(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
@@ -47,20 +68,97 @@ class MLETrainer(Trainer):
                                encoder_attention_mask=inputs["attention_mask"])
         self.model.release_exposed_tensors()
 
+        # compute loss
+        batch_size = inputs["decoder_attention_mask"].size(0)
+
+        if self.force_language:
+            logits = mask_logits_by_language(logits, inputs["decoder_language_labels"], self.vocab_lang)
+
+        sent_log_probs = compute_log_probs_with_mask(logits, inputs["decoder_input_ids"], inputs["decoder_attention_mask"])
+        total_tokens = inputs["decoder_attention_mask"].to(dtype=logits.dtype).sum() - batch_size
+        token_log_prob = sent_log_probs.sum() / total_tokens
+        loss = - token_log_prob / self.args.gradient_accumulation_steps
+        loss.backward()
+        return loss.item()
+
+    def training_ebm(self, model, inputs):
+        model.eval()
+        decoder_last_layer = model.base_model(
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            decoder_input_ids=inputs["decoder_input_ids"],
+            decoder_attention_mask=inputs["decoder_attention_mask"],
+        )
+        exposed_tensors = dict(self.model.named_exposed_tensors())
+
+        logits = model.lm_head(hidden_states=decoder_last_layer,
+                               attention_mask=inputs["decoder_attention_mask"],
+                               encoder_hidden_states=exposed_tensors["base_model.encoder_last_layer"],
+                               encoder_attention_mask=inputs["attention_mask"])
+        self.model.release_exposed_tensors()
 
         # compute loss
         batch_size = inputs["decoder_attention_mask"].size(0)
 
-        if self.ebm:
-            # sample fr
-            assert False
-        else:
-            if self.force_language:
-                logits = mask_logits_by_language(logits, inputs["decoder_language_labels"], self.vocab_lang)
-
+        # the first term of the log prob
         sent_log_prob = compute_log_probs_with_mask(logits, inputs["decoder_input_ids"], inputs["decoder_attention_mask"])
         total_tokens = inputs["decoder_attention_mask"].to(dtype=logits.dtype).sum() - batch_size
         token_log_prob = sent_log_prob.sum() / total_tokens
-        loss = - token_log_prob / self.args.gradient_accumulation_steps
-        loss.backward()
+        term1_loss = - token_log_prob / self.args.gradient_accumulation_steps
+
+        # the second term of the log prob
+        # sample from proposal
+        if self.force_language:
+            logit_bias = logit_bias_by_language(inputs["decoder_language_labels"], vocab_mask=self.vocab_lang)
+        else:
+            logit_bias = None
+        proposals = sample(model=model,
+                           input_ids=inputs["input_ids"],
+                           attention_mask=inputs["attention_mask"],
+                           decoder_input_ids=None,
+                           decoder_attention_mask=None,
+                           max_length=self.args.max_length,
+                           num_return_sequences=self.args.monte_carlo_num_sequences,
+                           bos_id=self.bos_id,
+                           eos_ids=self.eos_ids,
+                           pad_id=self.pad_id,
+                           vocab_size=self.vocab_size,
+                           logit_bias=logit_bias
+                           )
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        input_ids = input_ids[:, None, ...].expand(input_ids.size(0), self.args.monte_carlo_num_sequences,
+                                                   *input_ids.size()[1:])  # batch bin beam seq
+        attention_mask = attention_mask[:, None, ...].expand(attention_mask.size(0), self.args.monte_carlo_num_sequences,
+                                                             *attention_mask.size()[1:])  # batch bin beam seq
+        decoder_input_ids = proposals["decoder_input_ids"]
+        decoder_attention_mask = proposals["decoder_attention_mask"]
+        proposal_last_layer = model.base_model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+        )
+        exposed_tensors = dict(self.model.named_exposed_tensors())
+        logits = model.lm_head(hidden_states=proposal_last_layer,
+                               attention_mask=decoder_attention_mask,
+                               encoder_hidden_states=exposed_tensors["base_model.encoder_last_layer"],
+                               encoder_attention_mask=attention_mask)
+        self.model.release_exposed_tensors()
+        proposal_log_prob = compute_log_probs_with_mask(logits, decoder_input_ids, decoder_attention_mask)
+        log_numerator = proposal_log_prob.tolist()
+        log_denominator = proposals["log_probs"]
+        log_weights = torch.tensor(log_numerator, device=self.args.device) - torch.tensor(log_denominator,
+                                                                                          device=self.args.device)
+        weights = torch.softmax(log_weights, dim=-1)
+        term2_loss = (weights * proposal_log_prob).sum() / total_tokens / self.args.gradient_accumulation_steps
+        (term1_loss + term2_loss).backward()
+        # for logging
+        loss = term1_loss
+        # print((term1_loss + term2_loss).item())
+        # term1_loss.backward()
+        # print((term1_loss).item(), seq_norm(tuple(p.grad for p in model.parameters())).item())
+        # term2_loss.backward()
+        # print(( term2_loss).item(), seq_norm(tuple(p.grad for p in model.parameters())).item())
+        # print("#####")
         return loss.item()

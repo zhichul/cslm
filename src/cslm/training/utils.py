@@ -58,17 +58,17 @@ def compute_probs_with_mask(logits, labels, mask, reduce=True):
     return compute_log_probs_with_mask_fast(logits, labels, mask, reduce=reduce).exp()
 
 def compute_log_probs_with_mask_fast(logits, labels, mask, reduce=True):
-    batch_size = logits.size(0)
-    ctx_size = logits.size(1)
+    batch_sizes = logits.shape[:-2]
+    ctx_size = logits.size(-2)
 
-    shift_logits = logits[..., :-1, :].contiguous()  # (batch_size, ctx_size - 1, vocab_size)
-    shift_labels = labels[..., 1:].contiguous()  # (batch_size, ctx_size - 1, vocab_size)
-    shift_mask = mask[..., 1:].contiguous()  # (batch_size, ctx_size - 1)
+    shift_logits = logits[..., :-1, :].contiguous()  # (batch_sizes, ctx_size - 1, vocab_size)
+    shift_labels = labels[..., 1:].contiguous()  # (batch_sizes, ctx_size - 1, vocab_size)
+    shift_mask = mask[..., 1:].contiguous()  # (batch_sizes, ctx_size - 1)
     shift_labels = shift_labels * shift_mask + (-100) * (1 - shift_mask)
     if reduce:
-        return - F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1), reduction="none").reshape(batch_size, ctx_size-1).sum(dim=1)
+        return - F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1), reduction="none").reshape(*batch_sizes, ctx_size-1).sum(dim=-1)
     else:
-        return - F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1), reduction="none").reshape(batch_size, ctx_size-1)
+        return - F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1), reduction="none").reshape(*batch_sizes, ctx_size-1)
 
 def compute_log_probs_with_mask_slow(logits, labels, mask):
     batch_size = logits.size(0)

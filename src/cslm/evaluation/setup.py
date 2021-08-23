@@ -6,7 +6,7 @@ from cslm.evaluation.evaluation import EvaluationList, BreakdownEvaluation
 from cslm.evaluation.inspections.cross_entropy import CrossEntropyInspection
 from cslm.evaluation.inspections.softmix_cross_attention import SoftmixCrossAttention
 
-from cslm.evaluation.predictions.constrained_decoding import ConstrainedDecoding, constrained_decoding_bin_selector, constrained_decoding_length_selector
+from cslm.evaluation.predictions.constrained_decoding import ConstrainedDecoding
 from cslm.evaluation.predictions.cross_entropy import CrossEntropyPrediction
 from cslm.evaluation.metrics.cross_entropy import CrossEntropyEvaluation
 from cslm.evaluation.metrics.length_mismatch import LengthMismatch
@@ -14,6 +14,7 @@ from cslm.evaluation.metrics.next_word_pos import SyntheticNextWordPOS
 from cslm.evaluation.inspections.softmix_coeff import SoftmixCoeff
 from cslm.evaluation.metrics.tok_count import TokCount
 from cslm.evaluation.metrics.unigram_evaluation import UnigramLanguageAgnosticRecall, UnigramLanguageAgnosticPrecision
+from cslm.evaluation.predictions.gradient_estimation import GradientEstimation
 from cslm.evaluation.predictions.sampling import Sampling
 
 from cslm.inference.search_schemes import l1_mixed_l2, l1_3_l2, l1_5_l2, switch_5_percentage, switch_5_count
@@ -74,6 +75,25 @@ def setup_prediction(exp_args=None,
                                          output_file=output_file,
                                          cache_file=cache_file,
                                          filters=filters)
+    elif exp_args.decode_mode.startswith("interventional_sample"):
+        l1_size = len(l1_tokenizer.get_vocab())
+        prediction = Sampling(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         bos_id=bos_id,
+                                         eos_ids=eos_ids,
+                                         pad_id=pad_id,
+                                         vocab_size=vocab_size,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file,
+                                         filters=filters,
+                                         force_langauge=True,
+                                         l1_range=slice(4, l1_size, 1),
+                                         l2_range=slice(l1_size + 4, vocab_size, 1))
     elif exp_args.decode_mode.startswith("l1_mixed_l2"):
         fn_initial_state = l1_mixed_l2.initial_state_factory()
         fn_update_state = l1_mixed_l2.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
@@ -215,6 +235,24 @@ def setup_prediction(exp_args=None,
                                          output_file=output_file,
                                          cache_file=cache_file,
                                          filters=filters)
+    elif exp_args.decode_mode.startswith("gradient_estimation"):
+        l1_size = len(l1_tokenizer.get_vocab())
+        prediction = GradientEstimation(model=model,
+                                        args=exp_args,
+                                        eval_dataset=datasets["validation"],
+                                        data_collator=data_collator,
+                                        bos_id=bos_id,
+                                        eos_ids=eos_ids,
+                                        pad_id=pad_id,
+                                        vocab_size=vocab_size,
+                                        l0_tokenizer=l0_tokenizer,
+                                        l1_tokenizer=l1_tokenizer,
+                                        l2_tokenizer=l2_tokenizer,
+                                        output_file=output_file,
+                                        cache_file=cache_file,
+                                        l1_range=slice(4, l1_size, 1),
+                                        l2_range=slice(l1_size + 4, vocab_size, 1),
+                                        filters=filters)
     else:
         raise NotImplementedError
     return prediction
@@ -442,7 +480,11 @@ def setup_inspection(exp_args=None,
                      data_collator=None,
                      l0_tokenizer=None,
                      l1_tokenizer=None,
-                     l2_tokenizer=None):
+                     l2_tokenizer=None,
+                     vocab_size=None,
+                     bos_id=None,
+                     eos_ids=None,
+                     pad_id=None):
     if exp_args.inspect_mode is None:
         return None
     # setup output file
@@ -503,7 +545,6 @@ def setup_inspection(exp_args=None,
                                          l2_tokenizer=l2_tokenizer,
                                          output_file=output_file,
                                          cache_file=cache_file)
-
     else:
         raise NotImplementedError
     return inspection

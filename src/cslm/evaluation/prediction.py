@@ -34,8 +34,6 @@ class Prediction:
         self.l0_tokenizer = l0_tokenizer
         self.l1_tokenizer = l1_tokenizer
         self.l2_tokenizer = l2_tokenizer
-        if self.args.per_device_eval_batch_size != 1:
-            raise NotImplementedError
 
     def get_eval_dataloader(self, eval_dataset=None):
         if eval_dataset is None:

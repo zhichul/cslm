@@ -39,6 +39,7 @@ class Module(nn.Module):
         if any(re.match(pattern, name) for pattern in self.exposure_patterns):
             if name in self.exposed:
                 logger.warning(f"Overwriting exposed tensor {name}, did you release exposed tensors after the last forward call?")
+                assert False
             self.exposed[name] = tensor
         return tensor
 
