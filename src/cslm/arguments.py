@@ -97,7 +97,9 @@ class ExperimentArguments:
     names: Optional[List[str]] = field(
         default_factory=list, metadata={"help": "list of heads necessary for training"}
     )
-
+    specialize_decoder_by_language: Optional[bool] =  field(
+        default=False, metadata={"help": "specialize decoder by language"}
+    )
     # * * * * * * * * * * * * * * * * * * * * Data * ** * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     l1_tokenizer: str = field(
         default=None, metadata={"help": "Pretrained l1 tokenizer name"}

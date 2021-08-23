@@ -14,13 +14,15 @@ class EncoderDecoder(Module):
                 input_ids=None,
                 attention_mask=None,
                 decoder_input_ids=None,
-                decoder_attention_mask=None):
+                decoder_attention_mask=None,
+                decoder_language_ids=None):
         encoder_last_layer = self.encoder(input_ids=input_ids,
                                           attention_mask=attention_mask)
         decoder_last_layer = self.decoder(input_ids=decoder_input_ids,
                                           attention_mask=decoder_attention_mask,
                                           encoder_hidden_states=encoder_last_layer,
-                                          encoder_attention_mask=attention_mask)
+                                          encoder_attention_mask=attention_mask,
+                                          language_ids=decoder_language_ids)
         self.expose(encoder_last_layer, "encoder_last_layer")
         self.expose(decoder_last_layer, "decoder_last_layer")
         return decoder_last_layer

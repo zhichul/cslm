@@ -26,7 +26,7 @@ def logit_bias_by_language(lang_labels, vocab_mask):
 
 class MLETrainer(Trainer):
 
-    def __init__(self, *args, force_langauge=False, l1_range=None, l2_range=None, vocab_size=None, ebm=False, bos_id=None, eos_ids=None, pad_id=None, **kwargs):
+    def __init__(self, *args, force_langauge=False, l1_range=None, l2_range=None, vocab_size=None, ebm=False, bos_id=None, eos_ids=None, pad_id=None, specialize_decoder_by_language=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.model.add_exposure_pattern("encoder_last_layer")
         self.model.add_exposure_pattern("attn_weights")
@@ -45,6 +45,8 @@ class MLETrainer(Trainer):
         self.bos_id = bos_id
         self.eos_ids = eos_ids
         self.pad_id = pad_id
+        # specialize decoder
+        self.specialize_decoder_by_language = specialize_decoder_by_language
 
     def training_step(self, model, inputs):
         if self.ebm:
@@ -54,11 +56,16 @@ class MLETrainer(Trainer):
 
 
     def training_autoregressive(self, model, inputs):
+        if self.specialize_decoder_by_language:
+            language_ids = inputs["decoder_language_labels"][:,None].expand_as(inputs["input_ids"])
+        else:
+            language_ids = None
         decoder_last_layer = model.base_model(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             decoder_input_ids=inputs["decoder_input_ids"],
             decoder_attention_mask=inputs["decoder_attention_mask"],
+            decoder_language_ids=language_ids
         )
         exposed_tensors = dict(self.model.named_exposed_tensors())
 
@@ -82,12 +89,17 @@ class MLETrainer(Trainer):
         return loss.item()
 
     def training_ebm(self, model, inputs):
-        model.eval()
+        model.eval() # TODO: this is temporary disables dropout to reduce variance
+        if self.specialize_decoder_by_language:
+            language_ids = inputs["decoder_language_labels"][:,None].expand_as(inputs["input_ids"])
+        else:
+            language_ids = None
         decoder_last_layer = model.base_model(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             decoder_input_ids=inputs["decoder_input_ids"],
             decoder_attention_mask=inputs["decoder_attention_mask"],
+            laguage_ids=language_ids
         )
         exposed_tensors = dict(self.model.named_exposed_tensors())
 

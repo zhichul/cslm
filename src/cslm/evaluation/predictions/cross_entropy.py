@@ -26,6 +26,7 @@ class CrossEntropyPrediction(Prediction):
                 force_langauge=False,
                 l1_range=None,
                 l2_range=None,
+                specialize_decoder_by_language=False,
                 ):
         super().__init__(model=model,
                         args=args,
@@ -53,12 +54,20 @@ class CrossEntropyPrediction(Prediction):
         self.vocab_mask[0, l1_range] = 0
         self.vocab_mask[0, l2_range] = 1
 
+        # syn-aware decoder
+        self.specialize_decoder_by_language = specialize_decoder_by_language
+
     def _predict_step(self, model, inputs):
+        if self.specialize_decoder_by_language:
+            language_ids = inputs["decoder_language_labels"][:,None].expand_as(inputs["input_ids"])
+        else:
+            language_ids = None
         decoder_last_layer = model.base_model(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             decoder_input_ids=inputs["decoder_input_ids"],
             decoder_attention_mask=inputs["decoder_attention_mask"],
+            decoder_language_ids=language_ids
         )
         exposed_tensors = dict(self.model.named_exposed_tensors())
 

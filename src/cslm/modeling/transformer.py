@@ -111,6 +111,8 @@ class Transformer(Module):
         self.word_type_embed = nn.Embedding(config.vocab_size, self.n_embd)
         if self.config.pos_embd:
             self.word_position_embed = nn.Embedding(config.n_positions, self.n_embd)
+        if self.config.lang_embd:
+            self.language_embedding = nn.Embedding(2, self.n_embd)
 
         self.drop = nn.Dropout(config.embd_pdrop)
 
@@ -122,6 +124,7 @@ class Transformer(Module):
     def forward(
         self,
         input_ids=None,
+        language_ids=None,
         attention_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -153,6 +156,14 @@ class Transformer(Module):
         else:
             print("no pos")
             hidden_states = inputs_embeds
+
+        # optionally add language embeddings
+        if language_ids is not None and self.config.lang_embd is False:
+            raise ValueError("Please make sure that lang_embd=true is specified "
+                             "in transformer configuration when you'd like to use language embeddings.")
+        if language_ids is not None:
+            language_embeds = self.language_embedding(language_ids)
+            hidden_states = hidden_states + language_embeds
 
         hidden_states = self.drop(hidden_states)
 
