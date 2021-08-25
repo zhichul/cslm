@@ -192,6 +192,7 @@ class SoftmixOutputLayer(LMHead):
             encoder_attention_mask=encoder_attention_mask)
 
         hidden_states = hidden_states.reshape(hidden_states.size()[:-1] + (self.n_head, self.n_v))
+        self.expose(hidden_states, "head_transform_layer")
 
         # predict next token
         vocab_logits = self.output_layer(hidden_states)
