@@ -94,6 +94,7 @@ class Inspection(Prediction):
                     self.locals["exposed"] = dict((n,t.detach().cpu()) for n, t in self.model.named_exposed_tensors())
                     self.locals["inputs"] = inputs
                     self.locals["args"] = self.args
+                    self.locals["predict_result"] = predict_result
                     code.interact(local=self.locals)
                 self.model.release_exposed_tensors()
                 y = ""

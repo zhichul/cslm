@@ -51,7 +51,8 @@ class ConstrainedDecoding(Prediction):
                   do_sample=False,
                   l0_tokenizer=None,
                   l1_tokenizer=None,
-                  l2_tokenizer=None):
+                  l2_tokenizer=None,
+                  dual_activation=False):
         super().__init__(model=model,
                          args=args,
                          eval_dataset=eval_dataset,
@@ -73,6 +74,7 @@ class ConstrainedDecoding(Prediction):
         self.l2_tokenizer = l2_tokenizer
         self.l1_vocab_size = len(l1_tokenizer.get_vocab())
         self.l2_vocab_size = len(l2_tokenizer.get_vocab())
+        self.dual_activation = dual_activation
 
     def _predict_step(self, model, inputs):
         cells = beam_search(model=model,
@@ -91,7 +93,8 @@ class ConstrainedDecoding(Prediction):
                            eos_ids=self.eos_ids,
                            pad_id=self.pad_id,
                            vocab_size=self.vocab_size,
-                           do_sample=self.do_sample)
+                           do_sample=self.do_sample,
+                           dual_activation=self.dual_activation)
         for b, cell in enumerate(cells):
             log_weights = []
             for score, ids, meta in cell:

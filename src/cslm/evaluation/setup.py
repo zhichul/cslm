@@ -3,7 +3,7 @@ import sys
 from collections import OrderedDict
 
 from cslm.evaluation.evaluation import EvaluationList, BreakdownEvaluation
-from cslm.evaluation.inspections.cross_entropy import CrossEntropyInspection
+from cslm.evaluation.inspections.cross_entropy import CrossEntropyInspection, DualActivationCrossEntropy
 from cslm.evaluation.inspections.softmix_cross_attention import SoftmixCrossAttention
 
 from cslm.evaluation.predictions.constrained_decoding import ConstrainedDecoding
@@ -235,6 +235,32 @@ def setup_prediction(exp_args=None,
                                          output_file=output_file,
                                          cache_file=cache_file,
                                          filters=filters)
+    elif exp_args.decode_mode == "dual_activation_switch_5_count":
+        fn_initial_state = switch_5_count.initial_state_factory()
+        fn_update_state = switch_5_count.update_state_factory(eos_ids, len(l1_tokenizer.get_vocab()))
+        fn_assign_bin = switch_5_count.assign_bin_factory()
+        num_bins = switch_5_count.NUM_BINS
+        do_sample = exp_args.decode_do_sample
+        prediction = ConstrainedDecoding(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         bos_id=bos_id,
+                                         eos_ids=eos_ids,
+                                         pad_id=pad_id,
+                                         vocab_size=vocab_size,
+                                         fn_initial_state=fn_initial_state,
+                                         fn_update_state=fn_update_state,
+                                         fn_assign_bin=fn_assign_bin,
+                                         num_bins=num_bins,
+                                         do_sample=do_sample,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file,
+                                         filters=filters,
+                                         dual_activation=True)
     elif exp_args.decode_mode.startswith("gradient_estimation"):
         l1_size = len(l1_tokenizer.get_vocab())
         prediction = GradientEstimation(model=model,
@@ -561,6 +587,16 @@ def setup_inspection(exp_args=None,
                                          cache_file=cache_file)
     elif exp_args.inspect_mode == "cross_entropy":
         inspection = CrossEntropyInspection(model=model,
+                                         args=exp_args,
+                                         eval_dataset=datasets["validation"],
+                                         data_collator=data_collator,
+                                         l0_tokenizer=l0_tokenizer,
+                                         l1_tokenizer=l1_tokenizer,
+                                         l2_tokenizer=l2_tokenizer,
+                                         output_file=output_file,
+                                         cache_file=cache_file)
+    elif exp_args.inspect_mode == "dual_activation_cross_entropy":
+        inspection = DualActivationCrossEntropy(model=model,
                                          args=exp_args,
                                          eval_dataset=datasets["validation"],
                                          data_collator=data_collator,

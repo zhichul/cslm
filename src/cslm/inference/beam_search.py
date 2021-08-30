@@ -229,6 +229,7 @@ def beam_search(model=None,
                 vocab_size=None,
                 pad_id=None,
                 do_sample=False,
+                dual_activation=False,
                 ):
     # assert beam_size
     batch_size = input_ids.size(0)
@@ -265,18 +266,40 @@ def beam_search(model=None,
     # extract intermediate outputs necessary for computation
     model.add_exposure_pattern("encoder_last_layer")
     for t in range(max_length - 1):
-        decoder_last_layer = model.base_model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            decoder_input_ids=decoder_input_ids,
-            decoder_attention_mask=decoder_attention_mask,
-        )
-        encoder_last_layer = dict(model.named_exposed_tensors())["base_model.encoder_last_layer"]
-        model.release_exposed_tensors()
-        logits = model.lm_head(hidden_states=decoder_last_layer,
-                               attention_mask=decoder_attention_mask,
-                               encoder_hidden_states=encoder_last_layer,
-                               encoder_attention_mask=attention_mask)[..., -1, :]
+        if dual_activation:
+            langs = [0, 1]
+            logits_by_lang = [None, None]
+            for lang in langs:
+                decoder_last_layer = model.base_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    decoder_input_ids=decoder_input_ids,
+                    decoder_attention_mask=decoder_attention_mask,
+                    decoder_language_ids=decoder_input_ids.new_full(decoder_input_ids.size(), lang)
+                )
+                encoder_last_layer = dict(model.named_exposed_tensors())["base_model.encoder_last_layer"]
+                model.release_exposed_tensors()
+
+                logits_by_lang[lang] = model.lm_head(hidden_states=decoder_last_layer,
+                                                     attention_mask=decoder_attention_mask,
+                                                     encoder_hidden_states=encoder_last_layer,
+                                                     encoder_attention_mask=attention_mask)
+            logits = torch.stack(logits_by_lang, dim=-1)
+            logits = torch.logsumexp(logits, dim=-1)
+        else:
+            decoder_last_layer = model.base_model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                decoder_input_ids=decoder_input_ids,
+                decoder_attention_mask=decoder_attention_mask,
+            )
+            encoder_last_layer = dict(model.named_exposed_tensors())["base_model.encoder_last_layer"]
+            model.release_exposed_tensors()
+            logits = model.lm_head(hidden_states=decoder_last_layer,
+                                   attention_mask=decoder_attention_mask,
+                                   encoder_hidden_states=encoder_last_layer,
+                                   encoder_attention_mask=attention_mask)
+        logits = logits[..., -1, :]
         next_word_log_probs = torch.log_softmax(logits, dim=-1)
 
         # expansion (broadcasting will happen here)

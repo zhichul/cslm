@@ -137,6 +137,8 @@ class Transformer(Module):
         # for tensor with arbitrary number of axis, transform to  (-1, seq_length) matrix, run the model, then
         # transform back
         input_ids = input_ids.reshape(-1, input_ids.size(-1))
+        if language_ids is not None:
+            language_ids = language_ids.reshape(-1, language_ids.size(-1))
 
         position_ids = torch.arange(0, input_ids.size(-1), dtype=torch.long, device=device)
         position_ids = position_ids.unsqueeze(0).reshape(-1, input_ids.size(-1))
