@@ -93,6 +93,7 @@ class DualActivationCrossEntropy(CrossEntropyInspection):
     def _predict_step(self, model, inputs):
         langs = [0, 1]
         logits_by_lang = [None, None]
+        exposed = []
         for lang in langs:
             decoder_last_layer = model.base_model(
                 input_ids=inputs["input_ids"],
@@ -107,6 +108,8 @@ class DualActivationCrossEntropy(CrossEntropyInspection):
                                    attention_mask=inputs["decoder_attention_mask"],
                                    encoder_hidden_states=exposed_tensors["base_model.encoder_last_layer"],
                                    encoder_attention_mask=inputs["attention_mask"])
+            exposed_tensors = dict(self.model.named_exposed_tensors())
+            exposed.append(exposed_tensors)
             model.release_exposed_tensors()
         logits = torch.stack(logits_by_lang, dim=-1)
         logits = torch.logsumexp(logits, dim=-1)
@@ -135,4 +138,5 @@ class DualActivationCrossEntropy(CrossEntropyInspection):
             "cross_entropy": loss.item(),
             "labels": inputs["labels"][0].tolist(),
             "logits_by_lang": [lg.tolist() for lg in logits_by_lang],
+            "exposed": exposed
         }

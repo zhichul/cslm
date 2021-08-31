@@ -183,6 +183,7 @@ class SoftmixOutputLayer(LMHead):
 
         # compute head mixture
         head_logits = self.head_classifier(hidden_states)[..., None]
+        head_logits = torch.log_softmax(head_logits, dim=-2)
         self.expose(head_logits, "head_logits")
 
         # compute head transform
