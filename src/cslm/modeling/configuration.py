@@ -48,6 +48,7 @@ class EncoderDecoderConfig(Config):
     model_type: str = "encoder_decoder"
     encoder_config: Config = field(default=None)
     decoder_config: Config = field(default=None)
+    ignore_encoder: bool = field(default=False)
 
 
 @dataclass

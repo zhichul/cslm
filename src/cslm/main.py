@@ -98,7 +98,7 @@ def main():
     # * * * * * * * * * * * * * * * * * * * * MODEL SETUP START * * * * * * * * ** * * * * * * * * * * * * * * * * * * * #
     encoder_config = Config.from_json(exp_args.encoder_config)
     decoder_config = Config.from_json(exp_args.decoder_config)
-    encoder_decoder_config = EncoderDecoderConfig(encoder_config=encoder_config, decoder_config=decoder_config)
+    encoder_decoder_config = EncoderDecoderConfig(encoder_config=encoder_config, decoder_config=decoder_config, ignore_encoder=exp_args.ignore_encoder)
     softmix_config = Config.from_json(exp_args.softmix_config) if exp_args.softmix_config else None
 
     if exp_args.train_task in ["meaning_to_text", "asym_meaning_to_text"]:

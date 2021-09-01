@@ -1,3 +1,5 @@
+import torch
+
 from cslm.modeling.configuration import EncoderDecoderConfig
 from cslm.modeling.module import Module
 
@@ -9,6 +11,7 @@ class EncoderDecoder(Module):
         from cslm.modeling.constants import CLS_MAP
         self.encoder = CLS_MAP[config.encoder_config.model_type](config.encoder_config)
         self.decoder = CLS_MAP[config.decoder_config.model_type](config.decoder_config)
+        self.config = config
 
     def forward(self,
                 input_ids=None,
@@ -16,8 +19,13 @@ class EncoderDecoder(Module):
                 decoder_input_ids=None,
                 decoder_attention_mask=None,
                 decoder_language_ids=None):
-        encoder_last_layer = self.encoder(input_ids=input_ids,
-                                          attention_mask=attention_mask)
+        if self.config.ignore_encoder:
+            encoder_last_layer = input_ids.new_zeros(input_ids.size() + (self.config.encoder_config.n_embd,),
+                                                     dtype=torch.float32,
+                                                     device=input_ids.device)
+        else:
+            encoder_last_layer = self.encoder(input_ids=input_ids,
+                                              attention_mask=attention_mask)
         decoder_last_layer = self.decoder(input_ids=decoder_input_ids,
                                           attention_mask=decoder_attention_mask,
                                           encoder_hidden_states=encoder_last_layer,

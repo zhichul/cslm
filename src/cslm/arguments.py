@@ -97,8 +97,8 @@ class ExperimentArguments:
     names: Optional[List[str]] = field(
         default_factory=list, metadata={"help": "list of heads necessary for training"}
     )
-    specialize_decoder_by_language: Optional[bool] =  field(
-        default=False, metadata={"help": "specialize decoder by language"}
+    ignore_encoder: Optional[bool] = field(
+        default=False, metadata={"help": "ignore the encoder effectively turning it into a language model. (Not exactly, since this just replaces encoder output with zeros)"}
     )
     # * * * * * * * * * * * * * * * * * * * * Data * ** * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * #
     l1_tokenizer: str = field(

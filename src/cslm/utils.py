@@ -10,6 +10,10 @@ import torch
 logger = logging.get_logger(__name__)
 
 
+WARNED = {
+    "seq_norm": False,
+}
+
 def set_seed(seed: int):
     """
     Helper function for reproducible behavior to set the seed in ``random``, ``numpy``, ``torch`` and/or ``tf`` (if
@@ -37,13 +41,15 @@ def seq_dot(s1, s2):
     return cum
 
 
-def seq_norm(s1):
+def seq_norm(s1, warn_once=True):
     if not isinstance(s1, tuple):
         raise ValueError()
     cum = 0
     for m1 in s1:
         if m1 is None:
-            logger.warning("skipping None tensors in seq_norm")
+            if not WARNED["seq_norm"]:
+                logger.warning("skipping None tensors in seq_norm")
+                WARNED["seq_norm"] = True
             continue
         cum += (m1 * m1).sum()
     return cum ** 0.5
