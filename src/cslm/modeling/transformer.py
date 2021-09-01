@@ -156,7 +156,6 @@ class Transformer(Module):
             position_embeds = self.word_position_embed(position_ids)
             hidden_states = inputs_embeds + position_embeds
         else:
-            print("no pos")
             hidden_states = inputs_embeds
 
         # optionally add language embeddings
