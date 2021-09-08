@@ -5,6 +5,7 @@ from cslm.modeling.activations import ACTIVATIONS
 from cslm.modeling.attention import CrossAttention
 from cslm.modeling.head import LMHead
 from cslm.modeling.module import Module
+from cslm.utils import grad_check
 
 
 class ParameterLayer(Module):
@@ -183,7 +184,8 @@ class SoftmixOutputLayer(LMHead):
 
         # compute head mixture
         head_logits = self.head_classifier(hidden_states)[..., None]
-        head_logits = torch.log_softmax(head_logits, dim=-2)
+        head_logits = torch.log_softmax(head_logits, dim=-2) * 0
+        # head_logits.register_hook(grad_check)
         self.expose(head_logits, "head_logits")
 
         # compute head transform
@@ -215,7 +217,13 @@ class SoftmixOutputLayer(LMHead):
                 self.expose(torch.softmax(head_logits.squeeze(-1), dim=-1), "mixture_probs") # batch seq head
 
         else:
-            scaled_logits_by_head = head_logits + vocab_logits # batch seq heads vocab
+            scaled_logits_by_head = head_logits + vocab_logits
+            if self.language_heads:
+                mask = scaled_logits_by_head.new_zeros(scaled_logits_by_head.size(), dtype=torch.bool)
+                mask[:, :, 0, self.l1_vocab_size:] = 1
+                mask[:, :, 1, 4:self.l1_vocab_size] = 1
+                scaled_logits_by_head = scaled_logits_by_head.masked_fill(mask, -float("inf"))
+            # batch seq heads vocab
             logits = torch.logsumexp(scaled_logits_by_head, dim=-2) # batch seq vocab # this is true logits, not normalized
 
             if not self.training:
