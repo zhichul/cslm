@@ -1,5 +1,6 @@
 import orjson
 import torch
+from cslm.data.loading.tokenizer_loading import combine_wordlevel_tokenizer
 
 from cslm.training.utils import compute_log_probs_with_mask
 
@@ -31,6 +32,7 @@ class CrossEntropyInspection(Inspection):
         self.l2_tokenizer = l2_tokenizer
         self.l1_vocab_size = len(l1_tokenizer.get_vocab())
         self.l2_vocab_size = len(l2_tokenizer.get_vocab())
+        self.combined_tokenizer = combine_wordlevel_tokenizer(self.l1_tokenizer, self.l2_tokenizer)
 
     def _predict_step(self, model, inputs):
         decoder_last_layer = model.base_model(
@@ -81,10 +83,16 @@ class CrossEntropyInspection(Inspection):
             src = decode_input(predict_result["input_ids"], self.l0_tokenizer)
             tgt = decode_output(predict_result["decoder_input_ids"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
             o = decode_output(predict_result["labels"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size, self.l2_vocab_size)
+            olist = decode_output(predict_result["labels"], self.l1_tokenizer, self.l2_tokenizer, self.l1_vocab_size,
+                          self.l2_vocab_size,join=False)
             print(f"step: {step}", file=self.output_file)
             print(f"x: {src}", file=self.output_file)
             print(f"y: {tgt}", file=self.output_file)
             print(f"o: {o} log_prob={predict_result['log_prob']:<7.2f} tok_log_prob={','.join([f'{lp:<.2f}' for lp in predict_result['tok_log_prob']])}", file=self.output_file)
+            logits_by_lang = predict_result.get('logits_by_lang',None)
+            if logits_by_lang is not None:
+                logits_display = [[logits_by_lang[i][0][t][id] for t, id in enumerate(predict_result["labels"][1:])] for i in range(2)]
+                print(f"lg: {', '.join([f'{olist[t+1]} :' + '/'.join([f'{p:.2f}({max(logits_by_lang[i][0][t],):.2f}:{self.combined_tokenizer.id_to_token(np.argmax(logits_by_lang[i][0][t]))})' for i, p in enumerate(pair)]) for t, pair in enumerate(zip(*logits_display))])}")
             print(f"------------------------\n", file=self.output_file)
 
 
