@@ -331,3 +331,7 @@ def integers():
     while True:
         yield count
         count += 1
+
+def grad_check(grad):
+    print(grad.shape, grad)
+    assert False
