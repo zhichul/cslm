@@ -1,5 +1,5 @@
 *.egg-info/
-scripts/
+scripts/manual_mixture_of_softmax/summaries/*.png
 debug/
 __pycache__/
 notebooks/

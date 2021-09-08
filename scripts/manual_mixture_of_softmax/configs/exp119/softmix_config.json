@@ -1,0 +1,14 @@
+{
+    "model_type": "softmix",
+    "n_embd": 384,
+    "n_head": 2,
+    "n_qk": 384,
+    "n_v": 384,
+    "attn_pdrop": 0.0,
+    "resid_pdrop": 0.1,
+    "transform": "projection",
+    "sharing": true,
+    "conditional": true,
+    "normalized": false,
+    "language_heads": true
+}

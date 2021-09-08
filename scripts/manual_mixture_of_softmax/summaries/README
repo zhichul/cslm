@@ -1,0 +1,59 @@
+71      g2      baseline        multlingual             trained     predicted(tra)      unigram(len=5)
+72      g2      c sftmx(12)     multlingual             trained     predicted(tra)      unigram(len=5)
+73      g2      p sftmx(12)     multlingual             trained
+74      g2      c sftmx(1)      multlingual             trained     predicted(tra)      unigram(len=5)
+75      g2      p sftmx(1)      multlingual             trained
+76      g2      c sftmx(3)      multlingual             trained
+77      g2      p sftmx(3)      multlingual             trained
+78      g2      c sftmx(6)      multlingual             trained     predicted(tra)      unigram(len=5)
+79      g2      p sftmx(6)      multlingual             trained
+80      g2      noshare         multilingual            trained
+81      g2      uncond          multilingual            trained
+82      g2      unnorm          multilingual            trained
+
+91      g2      baseline        interventio             trained     predicted(tra)      unigram(len=5)
+92      g2      c sftmx(12)     interventio             trained     predicted(tra)      unigram(len=5)
+93      g2      p sftmx(12)     interventio             trained     predicted(tra)      unigram(len=5)
+94      g2      c sftmx(1)      interventio             trained     predicted(tra)      unigram(len=5)
+95      g2      p sftmx(1)      interventio             trained     predicted(tra)      unigram(len=5)
+96      g2      c sftmx(3)      interventio
+97      g2      p sftmx(3)      interventio
+98      g2      c sftmx(6)      interventio             trained     predicted(tra)      unigram(len=5)
+99      g2      p sftmx(6)      interventio             trained     predicted(tra)      unigram(len=5)
+
+114     g2      c sftmx(2)      interventio             trained     predicted(dup)      unigram(len=5)
+115     g2      p sftmx(2)      interventio             trained     predicted(dup)      unigram(len=5)
+116     g2      c unnorm(2)     interventio             trained     predicted(dup)      unigram(len=5)
+117     g2      p unnorm(2)     interventio             trained     predicted(dup)      unigram(len=5)
+118     g2      c lang(2)       interventio             trained     predicted(dup)      unigram(len=5)
+119     g2      p lang(2)       interventio             trained     predicted(dup)      unigram(len=5)
+120     g2      p lang(2) tanh  interventio             trained     predicted(dup)      unigram(len=5)
+
+128     g3:asym c lang(2)       asym-interv             trained     predicted(dup)      unigram(len=5)
+129     g3:asym p lang(2)       asym-interv             trained     predicted(dup)      unigram(len=5)
+130     g3:asym p lang(2) tanh  asym-interv             trained     predicted(dup)      unigram(len=5)
+131     g3:asym baseline        asym-interv             trained     predicted(dup)      unigram(len=5)
+133     g3:asym p sftmx(12)     asym-interv             trained     predicted(dup)      unigram(len=5)
+
+134     g3:10:1 c lang(2)       asym-interv             trained     predicted(dup)      unigram(len=5)
+135     g3:10:1 p lang(2)       asym-interv             trained     predicted(dup)      unigram(len=5)
+136     g3:10:1 p lang(2) tanh  asym-interv             trained     predicted(dup)      unigram(len=5)
+137     g3:10:1 baseline        asym-interv             trained     predicted(dup)      unigram(len=5)
+139     g3:10:1 p sftmx(12)     asym-interv             trained     predicted(dup)      unigram(len=5)
+
+141     g2      baseline ebm    MC(M=5)                 trained
+142     g2      baseline ebm    MC(M=512)               trained
+144     g2      c sftmx(1) ebm  MC(M=5)                 trained
+145     g2      c sftmx(1) ebm  MC(M=512)               trained
+
+150     g2      syn-aware       interventio             trained     predicted
+                p lang(2)
+
+151     same as 150 but ignores encoder                 trained     predicted
+152     same as 150 but no positional embedding         trained     predicted
+153     same as 152 but more layers (6)                 trained
+
+161     g2t     baseline        interventio
+162     g2t     syn-aware       interventio
+                p lang(2)
+                nopos

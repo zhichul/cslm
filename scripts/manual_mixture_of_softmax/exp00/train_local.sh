@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+JOB_ID=0
+
+CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py \
+    --encoder_config \
+    /home/blu/jhu/codeswitch/v1.1/scripts/manual_mixture_of_softmax/configs/exp00/encoder-3-12-384-ctx=16.json \
+    --decoder_config \
+    /home/blu/jhu/codeswitch/v1.1/scripts/manual_mixture_of_softmax/configs/exp00/decoder-3-12-384-ctx=16.json \
+    --train_file \
+    /export/a01/corpora/syn/g2/l1-l2/valid-sample.json \
+    --validation_file \
+    /export/a01/corpora/syn/g2/l1-l2/valid-debug.json \
+    --l0_tokenizer \
+    /export/a01/corpora/syn/g2/l0.0K.json \
+    --l1_tokenizer \
+    /export/a01/corpora/syn/g2/l1.0K.json \
+    --l2_tokenizer \
+    /export/a01/corpora/syn/g2/l2.0K.json \
+    --cache_dir \
+    /export/a01/corpora/.cache/codeswitch/v1.1/syn-g2-exp00 \
+    --output_dir \
+    /export/a01/artifacts/codeswitch/v1.1/mixture-of-softmax-exp00-0 \
+    --logging_dir \
+    /export/a01/artifacts/codeswitch/v1.1/mixture-of-softmax-exp00-0-tensorboard \
+    --overwrite_cache \
+    --overwrite_output_dir \
+    --max_steps \
+    100000 \
+    --learning_rate \
+    1e-5 \
+    --per_device_train_batch_size \
+    128 \
+    --gradient_accumulation_steps \
+    1 \
+    --per_device_eval_batch_size \
+    1 \
+    --eval_accumulation_steps \
+    1 \
+    --logging_steps \
+    10 \
+    --eval_steps \
+    500 \
+    --save_steps \
+    500 \
+    --heads \
+    softmax_lm_head \
+    --names \
+    lm_head \
+    --train_mode \
+    ebm_interventional_mle \
+    --max_length \
+    16 \
+    --train_task \
+    meaning_to_text \
+    --eval_task \
+    meaning_to_text \
+    --do_train \
+    --monte_carlo_num_sequences \
+    5
