@@ -52,7 +52,10 @@ class ConstrainedDecoding(Prediction):
                   l0_tokenizer=None,
                   l1_tokenizer=None,
                   l2_tokenizer=None,
-                  dual_activation=False):
+                  dual_activation=False,
+                  dual_activation_force_language=False,
+                  l1_range=None,
+                  l2_range=None):
         super().__init__(model=model,
                          args=args,
                          eval_dataset=eval_dataset,
@@ -75,6 +78,14 @@ class ConstrainedDecoding(Prediction):
         self.l1_vocab_size = len(l1_tokenizer.get_vocab())
         self.l2_vocab_size = len(l2_tokenizer.get_vocab())
         self.dual_activation = dual_activation
+        self.dual_activation_force_language = dual_activation_force_language
+        if self.dual_activation_force_language:
+            self.l1_range = l1_range
+            self.l2_range = l2_range
+            self.vocab_size = vocab_size
+            self.vocab_lang = torch.full((1, self.vocab_size), -1).to(self.args.device)
+            self.vocab_lang[0, l1_range] = 0
+            self.vocab_lang[0, l2_range] = 1
 
     def _predict_step(self, model, inputs):
         cells = beam_search(model=model,
@@ -94,7 +105,9 @@ class ConstrainedDecoding(Prediction):
                            pad_id=self.pad_id,
                            vocab_size=self.vocab_size,
                            do_sample=self.do_sample,
-                           dual_activation=self.dual_activation)
+                           dual_activation=self.dual_activation,
+                           dual_activation_force_language=self.dual_activation_force_language,
+                           vocab_lang=None if not self.dual_activation_force_language else self.vocab_lang)
         for b, cell in enumerate(cells):
             log_weights = []
             for score, ids, meta in cell:

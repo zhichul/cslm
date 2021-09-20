@@ -1,3 +1,5 @@
+import code
+
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import WeightedRandomSampler
 import torch.nn.functional as F
@@ -92,3 +94,25 @@ def compute_log_probs_with_mask_slow(logits, labels, mask):
     data_log_probs = flattened_log_probs[torch.arange(batch_size * (ctx_size - 1)), flattened_labels].reshape(
         batch_size, ctx_size - 1)
     return data_log_probs.sum(dim=-1)
+
+def mask_logits_by_language(logits, lang_labels, vocab_mask):
+    if len(lang_labels.size()) == 1:
+        lang_labels = lang_labels[:, None]
+    prefix_size = logits.shape[:-2]
+    logits = logits.reshape(-1, logits.size(-2), logits.size(-1))
+    lang_labels = lang_labels.reshape(-1, lang_labels.size(-1))
+    lang_labels = lang_labels[:,:,None]
+    # code.interact(local=locals())
+    logit_mask = (1 - lang_labels) == vocab_mask.expand(logits.size(0), 1, vocab_mask.size(-1))
+    logit_mask = logit_mask.expand(logits.size())
+    logits = logits.masked_fill(logit_mask, -float("inf"))
+    logits = logits.reshape(*(prefix_size + logits.shape[-2:]))
+    return logits
+
+
+def logit_bias_by_language(lang_labels, vocab_mask):
+    logit_bias = torch.zeros((lang_labels.size(0), vocab_mask.size(-1)), device=lang_labels.device)
+    logit_mask = (1 - lang_labels[:, None]) == vocab_mask.expand(lang_labels.size(0), vocab_mask.size(-1))
+    logit_mask = logit_mask[:, :].expand(logit_bias.size())
+    logit_bias = logit_bias.masked_fill(logit_mask, -float("inf"))
+    return logit_bias

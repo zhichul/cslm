@@ -1,3 +1,6 @@
+import code
+
+from cslm.training.utils import mask_logits_by_language
 from cslm.utils import ImmutableDict, max_gumbel, log_importance_weight
 from collections import defaultdict
 
@@ -230,6 +233,8 @@ def beam_search(model=None,
                 pad_id=None,
                 do_sample=False,
                 dual_activation=False,
+                dual_activation_force_language=False,
+                vocab_lang=None,
                 ):
     # assert beam_size
     batch_size = input_ids.size(0)
@@ -284,6 +289,8 @@ def beam_search(model=None,
                                                      attention_mask=decoder_attention_mask,
                                                      encoder_hidden_states=encoder_last_layer,
                                                      encoder_attention_mask=attention_mask)
+                if dual_activation_force_language:
+                    logits_by_lang[lang] = mask_logits_by_language(logits_by_lang[lang], decoder_input_ids.new_full(decoder_input_ids.size(), lang), vocab_lang)
             logits = torch.stack(logits_by_lang, dim=-1)
             logits = torch.logsumexp(logits, dim=-1)
         else:
