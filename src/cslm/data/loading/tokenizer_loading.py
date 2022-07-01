@@ -21,7 +21,7 @@ def load_and_setup_tokenizer(file, max_length=16, pad_token='[PAD]'):
     setup_tokenizer(tokenizer, max_length=max_length, pad_token=pad_token)
     return tokenizer
 
-def combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer):
+def combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer, overlap=False):
     # get l1 vocab
     l1_vocab = l1_tokenizer.get_vocab()
     l1_vocab_size = len(l1_vocab)
@@ -42,8 +42,9 @@ def combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer):
     for k,v in l1_vocab.items():
         combined_vocab[k] = v
     for k,v in l2_vocab.items():
-        combined_vocab[k] = v
-    assert len(combined_vocab) == l1_vocab_size + l2_vocab_size
+        combined_vocab[k] = combined_vocab.get(k, v) # only overwrite if not in l1 vocab
+
+    assert overlap or (len(combined_vocab) == l1_vocab_size + l2_vocab_size)
 
     # build new tokenizer
     word_tokenizer = Tokenizer(WordLevel(vocab=combined_vocab, unk_token="[UNK]"))
@@ -57,4 +58,5 @@ def combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer):
             ("[EOS]", 2),
         ],
     )
+    setup_tokenizer(word_tokenizer, max_length=l1_tokenizer.truncation["max_length"], pad_token="[PAD]")
     return word_tokenizer

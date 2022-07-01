@@ -1,3 +1,5 @@
+import code
+
 import torch
 from cslm.utils import seq_norm
 
@@ -85,7 +87,7 @@ class MLETrainer(Trainer):
             attention_mask=inputs["attention_mask"],
             decoder_input_ids=inputs["decoder_input_ids"],
             decoder_attention_mask=inputs["decoder_attention_mask"],
-            laguage_ids=language_ids
+            decoder_language_ids=language_ids
         )
         exposed_tensors = dict(self.model.named_exposed_tensors())
 

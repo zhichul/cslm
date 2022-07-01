@@ -2,6 +2,8 @@ import os
 import sys
 from collections import OrderedDict
 
+from cslm.data.loading.tokenizer_loading import combine_wordlevel_tokenizer
+
 from cslm.evaluation.evaluation import EvaluationList, BreakdownEvaluation
 from cslm.evaluation.inspections.cross_entropy import CrossEntropyInspection, DualActivationCrossEntropy
 from cslm.evaluation.inspections.softmix_cross_attention import SoftmixCrossAttention
@@ -446,6 +448,11 @@ def setup_metrics(exp_args=None,
             "evaluation": "cross_entropy",
             "name": "interventional_cross_entropy"
         },
+        "partial_aligned_interventional_cross_entropy": {
+            "prediction": "partial_aligned_interventional_cross_entropy",
+            "evaluation": "cross_entropy",
+            "name": "partial_aligned_interventional_cross_entropy"
+        },
         "syn_aware_interventional_cross_entropy": {
             "prediction": "syn_aware_interventional_cross_entropy",
             "evaluation": "cross_entropy",
@@ -457,6 +464,13 @@ def setup_metrics(exp_args=None,
             "name": "unigram_precision"
         }
     }
+
+    # TODO: move this setup for the shared interventional case to a nicer place
+    combined_tokenizer = combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer, overlap=True)
+    shared_vocab = [(k, v) for k, v in
+                    filter(lambda x: not x[0][-1].isnumeric(), combined_tokenizer.get_vocab().items())]
+    shared_ids = set(v for k, v in shared_vocab)
+
     validation_predictions = {
         "cross_entropy": CrossEntropyPrediction(
             model=model,
@@ -490,6 +504,24 @@ def setup_metrics(exp_args=None,
             force_langauge=True,
             l1_range=slice(4, l1_size, 1),
             l2_range=slice(l1_size + 4, vocab_size, 1)
+        ),
+        "partial_aligned_interventional_cross_entropy": CrossEntropyPrediction(
+            model=model,
+            args=exp_args,
+            eval_dataset=datasets["validation"],
+            data_collator=data_collator,
+            output_file=None,
+            bos_id=bos_id,
+            eos_ids=eos_ids,
+            pad_id=pad_id,
+            vocab_size=vocab_size,
+            l0_tokenizer=l0_tokenizer,
+            l1_tokenizer=l1_tokenizer,
+            l2_tokenizer=l2_tokenizer,
+            cache_file=None,
+            force_langauge=True,
+            l1_range=[i for i in range(4, l1_size, 1) if i not in shared_ids],
+            l2_range=[i for i in range(l1_size + 4, vocab_size, 1) if i not in shared_ids]
         ),
         "syn_aware_interventional_cross_entropy": CrossEntropyPrediction(
             model=model,

@@ -1,3 +1,4 @@
+import code
 import os
 import sys
 
@@ -8,7 +9,7 @@ from transformers import HfArgumentParser, AdamW
 from transformers.utils import logging
 
 from cslm.arguments import ExperimentArguments
-from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer
+from cslm.data.loading.tokenizer_loading import load_and_setup_tokenizer, combine_wordlevel_tokenizer
 from cslm.evaluation.setup import setup_prediction, setup_evaluation, setup_metrics, setup_inspection
 from cslm.modeling.configuration import Config, EncoderDecoderConfig
 from cslm.modeling.encoder_decoder import EncoderDecoder
@@ -18,7 +19,7 @@ from cslm.modeling.transformer import TransformerLMHead
 from cslm.training.mle_trainer import MLETrainer
 from cslm.training.utils import get_linear_schedule_with_warmup
 from cslm.utils import set_seed, seq_numel
-from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory
+from cslm.data.loading.data_loading import load_tritext_dataset, encoder_decoder_data_collator_factory, no_offset_encoder_decoder_data_collator_factory
 from grid_utils import acquire_all_available_gpu
 
 
@@ -101,7 +102,7 @@ def main():
     encoder_decoder_config = EncoderDecoderConfig(encoder_config=encoder_config, decoder_config=decoder_config, ignore_encoder=exp_args.ignore_encoder)
     softmix_config = Config.from_json(exp_args.softmix_config) if exp_args.softmix_config else None
 
-    if exp_args.train_task in ["meaning_to_text", "asym_meaning_to_text"]:
+    if exp_args.train_task in ["meaning_to_text", "asym_meaning_to_text", "combined_meaning_to_text"]:
         src_vocab_size = l0_tokenizer.get_vocab_size()
         target_vocab_size = l1_tokenizer.get_vocab_size() + l2_tokenizer.get_vocab_size()
         encoder_config.vocab_size = src_vocab_size
@@ -225,6 +226,25 @@ def main():
             vocab_size=vocab_size,
             l1_range=slice(4, l1_size, 1),
             l2_range=slice(l1_size + 4, vocab_size, 1)
+        )
+    elif exp_args.train_mode == "partial_aligned_interventional_mle":
+        combined_tokenizer = combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer, overlap=True)
+        shared_vocab = [(k,v) for k,v in filter(lambda x: not x[0][-1].isnumeric(), combined_tokenizer.get_vocab().items())]
+        shared_ids = set(v for k,v in shared_vocab)
+        trainer = MLETrainer(
+            model=model,
+            args=exp_args,
+            train_dataset=datasets["train"],
+            data_collator=no_offset_encoder_decoder_data_collator_factory(),
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            train_dataset_weights=exp_args.train_weight,
+            train_dataset_lengths=train_dataset_lengths,
+            evaluations=evaluations,
+            force_langauge=True,
+            vocab_size=vocab_size,
+            l1_range=[i for i in range(4, l1_size, 1) if i not in shared_ids],
+            l2_range=[i for i in range(l1_size + 4, vocab_size, 1) if i not in shared_ids]
         )
     elif exp_args.train_mode == "syn_aware_interventional_mle":
         trainer = MLETrainer(

@@ -82,7 +82,7 @@ class EvaluationList(Evaluation):
         elif self.args.eval_format == "human":
             for name, ev in self.evaluations:
                 self.output_file.write(f"{name}: ")
-                ev.log(ev.summary)
+                ev.mantissa(ev.summary)
         else:
             raise NotImplementedError
 

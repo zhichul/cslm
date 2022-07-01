@@ -1,3 +1,7 @@
+import code
+
+from cslm.data.loading.tokenizer_loading import combine_wordlevel_tokenizer
+
 L0_DATA = "l0"
 L1_DATA = "l1"
 L2_DATA = "l2"
@@ -145,6 +149,66 @@ def asym_meaning_to_text_preprocessor(l0_tokenizer=None, l1_tokenizer=None, l2_t
             "decoder_input_ids": decoder_input_ids,
             "decoder_attention_mask": decoder_attention_mask,
             "decoder_input_ids_offset": decoder_input_ids_offset,
+            "decoder_language_labels": decoder_language_labels,
+        }
+
+    return prepare
+
+
+def combined_meaning_to_text_preprocessor(l0_tokenizer=None, l1_tokenizer=None, l2_tokenizer=None):
+    def prepare(examples):
+        combined_tokenizer = combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer, overlap=True)
+        l0_tokenization = l0_tokenizer.encode_batch(examples[L0_DATA])
+        l1_tokenization = combined_tokenizer.encode_batch(examples[L1_DATA])
+        l2_tokenization = combined_tokenizer.encode_batch(examples[L2_DATA])
+
+        labels = []
+        # encoder inputs
+        input_ids = []
+        attention_mask = []
+        encoder_language_labels = []
+
+        # decoder inputs
+        decoder_input_ids = []
+        decoder_attention_mask = []
+        decoder_language_labels = []
+
+        # every triple gets turned into two examples, one translates from l0 to l1, another from l0 to l2
+        for i in range(len(examples[L0_DATA])):
+            # encoder
+            input_ids.append(l0_tokenization[i].ids)
+            input_ids.append(l0_tokenization[i].ids)
+
+            attention_mask.append(l0_tokenization[i].attention_mask)
+            attention_mask.append(l0_tokenization[i].attention_mask)
+
+
+            encoder_language_labels.append(-1)
+            encoder_language_labels.append(-1)
+
+            # decoder
+            decoder_input_ids.append(l1_tokenization[i].ids)
+            decoder_input_ids.append(l2_tokenization[i].ids)
+
+            decoder_attention_mask.append(l1_tokenization[i].attention_mask)
+            decoder_attention_mask.append(l2_tokenization[i].attention_mask)
+
+
+            decoder_language_labels.append(0)
+            decoder_language_labels.append(1)
+
+            labels.append(l1_tokenization[i].ids)
+            labels.append(l2_tokenization[i].ids)
+
+        return {
+            "labels": labels,
+
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "encoder_language_labels": encoder_language_labels,
+
+            "decoder_input_ids": decoder_input_ids,
+            "decoder_attention_mask": decoder_attention_mask,
             "decoder_language_labels": decoder_language_labels,
         }
 

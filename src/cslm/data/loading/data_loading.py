@@ -1,6 +1,7 @@
 import torch
 
-from cslm.data.loading.preprocessing.tritext import meaning_to_text_preprocessor, asym_meaning_to_text_preprocessor
+from cslm.data.loading.preprocessing.tritext import meaning_to_text_preprocessor, asym_meaning_to_text_preprocessor, \
+    combined_meaning_to_text_preprocessor
 from datasets import load_dataset
 import os
 import orjson
@@ -50,6 +51,8 @@ def load_tritext_dataset(dataset_file=None,
         prepare = meaning_to_text_preprocessor(l0_tokenizer, l1_tokenizer, l2_tokenizer)
     elif preprocessor == "asym_meaning_to_text":
         prepare = asym_meaning_to_text_preprocessor(l0_tokenizer, l1_tokenizer, l2_tokenizer)
+    elif preprocessor == "combined_meaning_to_text":
+        prepare = combined_meaning_to_text_preprocessor(l0_tokenizer, l1_tokenizer, l2_tokenizer)
     else:
         raise ValueError(f"Unknown tritext preprocessor: {preprocessor}")
 
@@ -119,6 +122,13 @@ def encoder_decoder_data_collator_factory(ignore_offset=-1):
             batch["decoder_input_ids"][:, 1:] += torch.where(batch["decoder_input_ids"][:, 1:] == ignore_offset, 0, batch["decoder_input_ids_offset"].unsqueeze(-1))
             batch["labels"][:, 1:] += torch.where(batch["labels"][:, 1:] == ignore_offset, 0, batch["decoder_input_ids_offset"].unsqueeze(-1))
             del batch["decoder_input_ids_offset"]
+        batch["labels"] = batch["labels"] * (batch["decoder_attention_mask"]) + (-100) * (1 - batch["decoder_attention_mask"])
+        return batch
+    return encoder_decoder_data_collator
+
+def no_offset_encoder_decoder_data_collator_factory():
+    def encoder_decoder_data_collator(features):
+        batch = default_data_collator(features)
         batch["labels"] = batch["labels"] * (batch["decoder_attention_mask"]) + (-100) * (1 - batch["decoder_attention_mask"])
         return batch
     return encoder_decoder_data_collator

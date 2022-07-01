@@ -1,0 +1,7 @@
+verb verb18 subj noun63 mod adj53 obj noun74 mod adj67
+
+adj53-1 noun63-1 verb18-1 adj67-1 noun74-1
+adj53-1 noun63-1 verb18-1 adj67-1 noun74-1
+
+noun63-2 adj53-2 verb18-2 noun74-2 adj67-2
+noun63-2 adj53-2 verb18-2 noun74-2 adj67-2
