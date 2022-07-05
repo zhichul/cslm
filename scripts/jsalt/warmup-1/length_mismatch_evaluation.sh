@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
+set -e
 JOB_ID=0
-NAME=warmup
+NAME=warmup-1
 CHEKPOINT=300000
 DECODE_MODE=switch_5_count
 BEAM_SIZE=200
+for eval_mode in length_mismatch
+do
+for bin in $(seq 0 5)
+do
 for i in $(seq 1 4)
 do
-CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py \
+CUDA_VISIBLE_DEVICES= python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py \
+    --device cpu \
     --model_name_or_path ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/pytorch_model.bin \
     --encoder_config \
     /home/blu/jhu/codeswitch/v1.1/scripts/jsalt/${NAME}/encoder.json \
@@ -15,7 +21,7 @@ CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py
     --train_file \
     ${BLU_CORPORA}/syn/g2/l1-l2/valid-sample.json \
     --validation_file \
-    ${BLU_CORPORA}/syn/g2/l1-l2/valid-sample.json \
+    ${BLU_CORPORA}/syn/g2/l1-l2/train-sample.json \
     --l0_tokenizer \
     ${BLU_CORPORA}/syn/g2/l0.0K.json \
     --l1_tokenizer \
@@ -59,17 +65,25 @@ CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py
     --dataset_num_workers \
     5 \
     --train_task \
-    meaning_to_text \
+    bitext_to_text \
     --eval_task \
-    meaning_to_text \
+    bitext_to_text \
     --decode_mode \
     ${DECODE_MODE} \
     --decode_format data \
     --decode_num_beams ${BEAM_SIZE} \
     --decode_num_sequences ${BEAM_SIZE} \
     --decode_do_sample \
-    --decode_output ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/predictions.${i}.json \
-    --seed ${i} \
-    --decode_overwrite_output
-
+    --decode_load_cache ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/predictions.${i}.json \
+    --eval_mode \
+      ${eval_mode} \
+    --eval_output \
+    ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/evaluations.${i}.bin${bin}.${eval_mode}.json \
+    --eval_format data \
+    --eval_filter "constrained_decoding_bin_selector(${bin})"
+done
+shopt -s extglob
+ROOT=${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}
+merge_json ${ROOT}/evaluations.*.bin${bin}.${eval_mode}.json > ${ROOT}/average.bin${bin}.${eval_mode}.json
+done
 done

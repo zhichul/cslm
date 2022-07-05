@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+set -e
 JOB_ID=0
-NAME=warmup
+NAME=warmup-1
 CHEKPOINT=300000
 DECODE_MODE=switch_5_count
 BEAM_SIZE=200
+DISPLAY=5
 for i in $(seq 1 4)
 do
 CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py \
@@ -59,17 +61,17 @@ CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py
     --dataset_num_workers \
     5 \
     --train_task \
-    meaning_to_text \
+    bitext_to_text \
     --eval_task \
-    meaning_to_text \
+    bitext_to_text \
     --decode_mode \
     ${DECODE_MODE} \
-    --decode_format data \
+    --decode_format human \
     --decode_num_beams ${BEAM_SIZE} \
     --decode_num_sequences ${BEAM_SIZE} \
     --decode_do_sample \
-    --decode_output ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/predictions.${i}.json \
-    --seed ${i} \
-    --decode_overwrite_output
-
+    --decode_output terminal \
+    --decode_display_sequences ${DISPLAY} \
+    --decode_load_cache ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/predictions.${i}.json \
+    | ansi2html > ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/predictions.${i}.html
 done

@@ -213,3 +213,144 @@ def combined_meaning_to_text_preprocessor(l0_tokenizer=None, l1_tokenizer=None, 
         }
 
     return prepare
+
+def bitext_to_text_preprocessor(l0_tokenizer=None, l1_tokenizer=None, l2_tokenizer=None):
+    l0_id_offset = 0
+    l1_id_offset = 0
+    l2_id_offset = len(l1_tokenizer.get_vocab())
+
+    def prepare(examples):
+        l0_tokenization = l0_tokenizer.encode_batch(examples[L0_DATA])
+        l1_tokenization = l1_tokenizer.encode_batch(examples[L1_DATA])
+        l2_tokenization = l2_tokenizer.encode_batch(examples[L2_DATA])
+
+        labels = []
+        # encoder inputs
+        input_ids = []
+        attention_mask = []
+        input_ids_offset = []
+        encoder_language_labels = []
+
+        # decoder inputs
+        decoder_input_ids = []
+        decoder_attention_mask = []
+        decoder_input_ids_offset = []
+        decoder_language_labels = []
+
+        # every triple gets turned into two examples, one translates from l0 to l1, another from l0 to l2
+        for i in range(len(examples[L0_DATA])):
+            # encoder
+            input_ids.append(l1_tokenization[i].ids + [id + l2_id_offset for id in l2_tokenization[i].ids])
+            input_ids.append(l1_tokenization[i].ids + [id + l2_id_offset for id in l2_tokenization[i].ids])
+
+            attention_mask.append(l1_tokenization[i].attention_mask + l2_tokenization[i].attention_mask)
+            attention_mask.append(l1_tokenization[i].attention_mask + l2_tokenization[i].attention_mask)
+
+            input_ids_offset.append(l0_id_offset)
+            input_ids_offset.append(l0_id_offset)
+
+            encoder_language_labels.append(-1)
+            encoder_language_labels.append(-1)
+
+            # decoder
+            decoder_input_ids.append(l1_tokenization[i].ids)
+            decoder_input_ids.append(l2_tokenization[i].ids)
+
+            decoder_attention_mask.append(l1_tokenization[i].attention_mask)
+            decoder_attention_mask.append(l2_tokenization[i].attention_mask)
+
+            decoder_input_ids_offset.append(l1_id_offset)
+            decoder_input_ids_offset.append(l2_id_offset)
+
+            decoder_language_labels.append(0)
+            decoder_language_labels.append(1)
+
+            labels.append(l1_tokenization[i].ids)
+            labels.append(l2_tokenization[i].ids)
+
+        return {
+            "labels": labels,
+
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "input_ids_offset": input_ids_offset,
+            "encoder_language_labels": encoder_language_labels,
+
+            "decoder_input_ids": decoder_input_ids,
+            "decoder_attention_mask": decoder_attention_mask,
+            "decoder_input_ids_offset": decoder_input_ids_offset,
+            "decoder_language_labels": decoder_language_labels,
+        }
+
+    return prepare
+
+def combined_bitext_to_text_preprocessor(l0_tokenizer=None, l1_tokenizer=None, l2_tokenizer=None):
+    l0_id_offset = 0
+    l1_id_offset = 0
+    l2_id_offset = len(l1_tokenizer.get_vocab())
+
+    def prepare(examples):
+        combined_tokenizer = combine_wordlevel_tokenizer(l1_tokenizer, l2_tokenizer, overlap=True)
+        l0_tokenization = l0_tokenizer.encode_batch(examples[L0_DATA])
+        l1_tokenization = combined_tokenizer.encode_batch(examples[L1_DATA])
+        l2_tokenization = combined_tokenizer.encode_batch(examples[L2_DATA])
+
+        labels = []
+        # encoder inputs
+        input_ids = []
+        attention_mask = []
+        input_ids_offset = []
+        encoder_language_labels = []
+
+        # decoder inputs
+        decoder_input_ids = []
+        decoder_attention_mask = []
+        decoder_input_ids_offset = []
+        decoder_language_labels = []
+
+        # every triple gets turned into two examples, one translates from l0 to l1, another from l0 to l2
+        for i in range(len(examples[L0_DATA])):
+            # encoder
+            input_ids.append(l1_tokenization[i].ids + l2_tokenization[i].ids)
+            input_ids.append(l1_tokenization[i].ids + l2_tokenization[i].ids)
+
+            attention_mask.append(l1_tokenization[i].attention_mask + l2_tokenization[i].attention_mask)
+            attention_mask.append(l1_tokenization[i].attention_mask + l2_tokenization[i].attention_mask)
+
+            input_ids_offset.append(l0_id_offset)
+            input_ids_offset.append(l0_id_offset)
+
+            encoder_language_labels.append(-1)
+            encoder_language_labels.append(-1)
+
+            # decoder
+            decoder_input_ids.append(l1_tokenization[i].ids)
+            decoder_input_ids.append(l2_tokenization[i].ids)
+
+            decoder_attention_mask.append(l1_tokenization[i].attention_mask)
+            decoder_attention_mask.append(l2_tokenization[i].attention_mask)
+
+            decoder_input_ids_offset.append(l1_id_offset)
+            decoder_input_ids_offset.append(l2_id_offset)
+
+            decoder_language_labels.append(0)
+            decoder_language_labels.append(1)
+
+            labels.append(l1_tokenization[i].ids)
+            labels.append(l2_tokenization[i].ids)
+
+        return {
+            "labels": labels,
+
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "input_ids_offset": input_ids_offset,
+            "encoder_language_labels": encoder_language_labels,
+
+            "decoder_input_ids": decoder_input_ids,
+            "decoder_attention_mask": decoder_attention_mask,
+            "decoder_input_ids_offset": decoder_input_ids_offset,
+            "decoder_language_labels": decoder_language_labels,
+        }
+
+    return prepare

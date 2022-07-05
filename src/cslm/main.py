@@ -112,6 +112,15 @@ def main():
             softmix_config.l1_vocab_size = l1_size
             softmix_config.l2_vocab_size = l2_size
         base_model = EncoderDecoder(encoder_decoder_config)
+    elif exp_args.train_task in ["bitext_to_text", "combined_bitext_to_text"]:
+        combined_vocab_size = l1_tokenizer.get_vocab_size() + l2_tokenizer.get_vocab_size()
+        encoder_config.vocab_size = combined_vocab_size
+        decoder_config.vocab_size = combined_vocab_size
+        if softmix_config is not None:
+            softmix_config.vocab_size = combined_vocab_size
+            softmix_config.l1_vocab_size = l1_size
+            softmix_config.l2_vocab_size = l2_size
+        base_model = EncoderDecoder(encoder_decoder_config)
     else:
         raise NotImplementedError
 

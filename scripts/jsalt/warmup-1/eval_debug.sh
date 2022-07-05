@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 JOB_ID=0
-NAME=warmup
-CHEKPOINT=300000
-DECODE_MODE=switch_5_count
-BEAM_SIZE=200
-for i in $(seq 1 4)
-do
+
+NAME=warmup-1
+CHEKPOINT=295000
+
 CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py \
     --model_name_or_path ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/pytorch_model.bin \
     --encoder_config \
@@ -59,17 +57,11 @@ CUDA_VISIBLE_DEVICES=0 python3 -u /home/blu/jhu/codeswitch/v1.1/src/cslm/main.py
     --dataset_num_workers \
     5 \
     --train_task \
-    meaning_to_text \
+    bitext_to_text \
     --eval_task \
-    meaning_to_text \
+    bitext_to_text \
     --decode_mode \
-    ${DECODE_MODE} \
-    --decode_format data \
-    --decode_num_beams ${BEAM_SIZE} \
-    --decode_num_sequences ${BEAM_SIZE} \
-    --decode_do_sample \
-    --decode_output ${BLU_ARTIFACTS}/codeswitch/v1.1/jsalt-${NAME}-$JOB_ID/checkpoint-${CHEKPOINT}/evaluations/${DECODE_MODE}/num-beams-${BEAM_SIZE}/predictions.${i}.json \
-    --seed ${i} \
-    --decode_overwrite_output
-
-done
+    l1_mixed_l2 \
+    --decode_format human \
+    --decode_num_beams 5 \
+    --decode_num_sequences 5 \

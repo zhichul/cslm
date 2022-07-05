@@ -117,7 +117,7 @@ class ConstrainedDecoding(Prediction):
                     log_weights.append(0.0)
             weights = torch.softmax(torch.tensor(log_weights), dim=-1).tolist()
             for weight, (score, ids, meta) in sorted(list(zip(reversed(weights), reversed(cell))), key=lambda x: (x[0], x[1][0]), reverse=True):
-                yield {
+                item = {
                     "input_ids": inputs["input_ids"][0].tolist(),
                     "attention_mask": inputs["attention_mask"][0].tolist(),
                     "decoder_input_ids": inputs["decoder_input_ids"][0].tolist(),
@@ -132,7 +132,9 @@ class ConstrainedDecoding(Prediction):
                     "cell_id": b,
                     "weight": weight,
                     "cross_entropy": -meta["log_prob"] / (meta["tok_count"] + 1),
-                } | meta
+                }
+                item.update(meta)
+                yield item
 
     def _log_step(self, step, predict_result):
         if self.args.decode_format == "data":

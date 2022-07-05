@@ -167,7 +167,7 @@ def grow_beams(cells=None,
             if candidate_next_token.item() in eos_ids:
                 cells[b].add(score=candidate_cum_log_prob_perturbed.item(),
                              ids=candidate_prefix.tolist() + [candidate_next_token.item()],
-                             meta={k: v[i].tolist() for k, v in topk_extension_state_of_bin.items()} | {"log_prob": candidate_cum_log_prob.item()})
+                             meta=dict([(k, v[i].tolist()) for k, v in topk_extension_state_of_bin.items()] + [("log_prob", candidate_cum_log_prob.item())]))
             else:
                 next_tokens_of_bin.append(candidate_next_token.tolist())
                 prefixes_of_bin.append(candidate_prefix.tolist())
@@ -344,7 +344,7 @@ def beam_search(model=None,
             for i in range(num_return_sequences - len(cell)):
                 cell.add(score=gumbel_max[0, b, i, 0].item(),
                          ids=decoder_input_ids[0, b, i, :].tolist(),
-                         meta={k: v[0, b, i, 0].tolist() for k,v in state.items()} | {"log_prob": cum_log_probs[0, b, i, 0].item()})
+                         meta=dict([(k, v[0, b, i, 0].tolist()) for k,v in state.items()] + [("log_prob", cum_log_probs[0, b, i, 0].item())]))
         if do_sample:
             cell.compute_importance_weights()
         cell.freeze()
